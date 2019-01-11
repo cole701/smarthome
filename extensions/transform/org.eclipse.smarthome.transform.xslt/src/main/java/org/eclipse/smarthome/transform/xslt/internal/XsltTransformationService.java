@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.transform.xslt.internal;
 
@@ -17,42 +22,40 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.stream.StreamResult;
 import javax.xml.transform.stream.StreamSource;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.config.core.ConfigConstants;
 import org.eclipse.smarthome.core.transform.TransformationException;
 import org.eclipse.smarthome.core.transform.TransformationService;
+import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * <p>
  * The implementation of {@link TransformationService} which transforms the input by XSLT.
- * </p>
  *
  * @author Thomas.Eichstaedt-Engelen
  */
+@NonNullByDefault
+@Component(immediate = true, property = { "smarthome.transform=XSLT" })
 public class XsltTransformationService implements TransformationService {
 
     private final Logger logger = LoggerFactory.getLogger(XsltTransformationService.class);
 
     /**
-     * <p>
-     * Transforms the input <code>source</code> by XSLT. It expects the transformation rule to be read from a file which
-     * is stored under the 'configurations/transform' folder. To organize the various transformations one should use
-     * subfolders.
-     * </p>
+     * Transforms the input <code>source</code> by XSLT.
      *
-     * @param filename
-     *            the name of the file which contains the XSLT transformation rule. The name may contain subfoldernames
-     *            as well
-     * @param source
-     *            the input to transform
+     * The method expects the transformation rule to be read from a file which
+     * is stored under the 'configurations/transform' folder. To organize the
+     * various transformations one should use subfolders.
      *
-     * @{inheritDoc
-     *
+     * @param filename the name of the file which contains the XSLT transformation rule.
+     *            The name may contain subfoldernames as well
+     * @param source the input to transform
      */
     @Override
-    public String transform(String filename, String source) throws TransformationException {
-
+    public @Nullable String transform(String filename, String source) throws TransformationException {
         if (filename == null || source == null) {
             throw new TransformationException("the given parameters 'filename' and 'source' must not be null");
         }
@@ -66,7 +69,7 @@ public class XsltTransformationService implements TransformationService {
         } catch (Exception e) {
             String message = "opening file '" + filename + "' throws exception";
 
-            logger.error(message, e);
+            logger.error("{}", message, e);
             throw new TransformationException(message, e);
         }
 

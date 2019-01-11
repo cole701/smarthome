@@ -1,17 +1,29 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.transform.jsonpath.internal;
 
+import java.util.List;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.transform.TransformationException;
 import org.eclipse.smarthome.core.transform.TransformationService;
+import org.eclipse.smarthome.core.types.UnDefType;
+import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import com.jayway.jsonpath.InvalidJsonException;
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.PathNotFoundException;
@@ -19,12 +31,13 @@ import com.jayway.jsonpath.PathNotFoundException;
 /**
  * <p>
  * The implementation of {@link TransformationService} which transforms the input by JSonPath Expressions.
- * </p>
  *
  * @author Gaël L'hopital
  * @author Sebastian Janzen
  *
  */
+@NonNullByDefault
+@Component(immediate = true, property = { "smarthome.transform=JSONPATH" })
 public class JSonPathTransformationService implements TransformationService {
 
     private final Logger logger = LoggerFactory.getLogger(JSonPathTransformationService.class);
@@ -38,8 +51,7 @@ public class JSonPathTransformationService implements TransformationService {
      *             which is encapsulated in a {@link TransformationException}.
      */
     @Override
-    public String transform(String jsonPathExpression, String source) throws TransformationException {
-
+    public @Nullable String transform(String jsonPathExpression, String source) throws TransformationException {
         if (jsonPathExpression == null || source == null) {
             throw new TransformationException("the given parameters 'JSonPath' and 'source' must not be null");
         }
@@ -49,13 +61,30 @@ public class JSonPathTransformationService implements TransformationService {
         try {
             Object transformationResult = JsonPath.read(source, jsonPathExpression);
             logger.debug("transformation resulted in '{}'", transformationResult);
-            return (transformationResult != null) ? transformationResult.toString() : null;
+            if (transformationResult == null) {
+                return null;
+            } else if (transformationResult instanceof List) {
+                return flattenList((List<?>) transformationResult);
+            } else {
+                return transformationResult.toString();
+            }
         } catch (PathNotFoundException e) {
-            return null;
-        } catch (InvalidPathException e) {
-            throw new TransformationException("An error occured while transforming JSON expression.", e);
+            throw new TransformationException("Invalid path '" + jsonPathExpression + "' in '" + source + "'");
+        } catch (InvalidPathException | InvalidJsonException e) {
+            throw new TransformationException("An error occurred while transforming JSON expression.", e);
         }
+    }
 
+    private String flattenList(List<?> list) {
+        if (list.size() == 1) {
+            return list.get(0).toString();
+        }
+        if (list.size() > 1) {
+            logger.warn(
+                    "JsonPath expressions with more than one result are not allowed, please adapt your selector. Result: {}",
+                    list);
+        }
+        return UnDefType.NULL.toFullString();
     }
 
 }

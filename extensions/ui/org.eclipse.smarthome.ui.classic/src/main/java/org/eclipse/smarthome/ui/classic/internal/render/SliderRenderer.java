@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.ui.classic.internal.render;
 
@@ -14,33 +19,29 @@ import org.eclipse.smarthome.model.sitemap.Widget;
 import org.eclipse.smarthome.ui.classic.internal.servlet.WebAppServlet;
 import org.eclipse.smarthome.ui.classic.render.RenderException;
 import org.eclipse.smarthome.ui.classic.render.WidgetRenderer;
+import org.eclipse.smarthome.ui.items.ItemUIRegistry;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 
 /**
  * <p>
  * This is an implementation of the {@link WidgetRenderer} interface, which can produce HTML code for Slider widgets.
- * </p>
  *
  * <p>
  * Note: As the WebApp.Net framework cannot render real sliders in the UI, we instead show buttons to increase or
  * decrease the value.
- * </p>
  *
  * @author Kai Kreuzer - Initial contribution and API
  *
  */
+@Component(service = WidgetRenderer.class)
 public class SliderRenderer extends AbstractWidgetRenderer {
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean canRender(Widget w) {
         return w instanceof Slider;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public EList<Widget> renderWidget(Widget w, StringBuilder sb) throws RenderException {
         Slider s = (Slider) w;
@@ -68,4 +69,16 @@ public class SliderRenderer extends AbstractWidgetRenderer {
         sb.append(snippet);
         return null;
     }
+
+    @Override
+    @Reference
+    protected void setItemUIRegistry(ItemUIRegistry ItemUIRegistry) {
+        super.setItemUIRegistry(ItemUIRegistry);
+    }
+
+    @Override
+    protected void unsetItemUIRegistry(ItemUIRegistry ItemUIRegistry) {
+        super.unsetItemUIRegistry(ItemUIRegistry);
+    }
+
 }

@@ -1,0 +1,24 @@
+Manifest-Version: 1.0
+Automatic-Module-Name: org.eclipse.smarthome.io.transport.mqtt.test
+Bundle-ManifestVersion: 2
+Bundle-Name: Eclipse SmartHome MQTT Transport Bundle Tests
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-SymbolicName: org.eclipse.smarthome.io.transport.mqtt.test
+Bundle-Vendor: Eclipse.org/SmartHome
+Bundle-Version: 0.11.0.qualifier
+Fragment-Host: org.eclipse.smarthome.io.transport.mqtt
+Import-Package: 
+ org.eclipse.jdt.annotation;resolution:=optional,
+ org.eclipse.paho.client.mqttv3,
+ org.eclipse.smarthome.io.transport.mqtt,
+ org.eclipse.smarthome.test,
+ org.eclipse.smarthome.test.java,
+ org.hamcrest;core=split,
+ org.hamcrest.collection,
+ org.hamcrest.core,
+ org.junit,
+ org.junit.runner,
+ org.junit.runners,
+ org.mockito,
+ org.mockito.invocation,
+ org.mockito.stubbing

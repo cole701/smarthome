@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.lifx.internal.protocol;
 
@@ -28,7 +33,7 @@ public class StateLocationResponse extends Packet {
 
     private ByteBuffer location;
     private String label;
-    private long updated_at;
+    private long updatedAt;
 
     public static int getType() {
         return TYPE;
@@ -51,11 +56,11 @@ public class StateLocationResponse extends Packet {
     }
 
     public long getUpdatedAt() {
-        return updated_at;
+        return updatedAt;
     }
 
-    public void setUpdatedAt(long updated_at) {
-        this.updated_at = updated_at;
+    public void setUpdatedAt(long updatedAt) {
+        this.updatedAt = updatedAt;
     }
 
     @Override
@@ -72,13 +77,13 @@ public class StateLocationResponse extends Packet {
     protected void parsePacket(ByteBuffer bytes) {
         location = FIELD_LOCATION.value(bytes);
         label = FIELD_LABEL.value(bytes);
-        updated_at = FIELD_UPDATED_AT.value(bytes);
+        updatedAt = FIELD_UPDATED_AT.value(bytes);
     }
 
     @Override
     protected ByteBuffer packetBytes() {
         return ByteBuffer.allocate(packetLength()).put(FIELD_LOCATION.bytes(location)).put(FIELD_LABEL.bytes(label))
-                .put(FIELD_UPDATED_AT.bytes(updated_at));
+                .put(FIELD_UPDATED_AT.bytes(updatedAt));
     }
 
     @Override

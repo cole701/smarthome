@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.core;
 
@@ -16,6 +21,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import com.google.gson.annotations.SerializedName;
+
 /**
  * The {@link ConfigDescriptionParameter} class contains the description of a
  * concrete configuration parameter. Such parameter descriptions are collected
@@ -25,7 +32,7 @@ import java.util.Set;
  * @author Alex Tugarev - Added options, filter criteria, and more parameter
  *         attributes
  * @author Chris Jackson - Added groupId, limitToOptions, advanced,
- *         multipleLimit attributes
+ *         multipleLimit, verify attributes
  * @author Christoph Knauf - Added default constructor, changed Boolean
  *         getter to return primitive types
  * @author Thomas Höfer - Added unit
@@ -81,6 +88,7 @@ public class ConfigDescriptionParameter {
     private String unitLabel;
 
     private String context;
+    @SerializedName("default")
     private String defaultValue;
     private String label;
     private String description;
@@ -88,13 +96,14 @@ public class ConfigDescriptionParameter {
     private List<ParameterOption> options = new ArrayList<ParameterOption>();
     private List<FilterCriteria> filterCriteria = new ArrayList<FilterCriteria>();
 
-    private boolean limitToOptions = false;
+    private boolean limitToOptions = true;
     private boolean advanced = false;
+    private boolean verify = false;
 
     private static final Set<String> UNITS = Collections
             .unmodifiableSet(new HashSet<String>(Arrays.asList("A", "cd", "K", "kg", "m", "mol", "s", "g", "rad", "sr",
                     "Hz", "N", "Pa", "J", "W", "C", "V", "F", "Ω", "S", "Wb", "T", "H", "Cel", "lm", "lx", "Bq", "Gy",
-                    "Sv", "kat", "m/s2", "m2v", "m3", "kph", "%", "l", "min", "h", "d", "week", "y")));
+                    "Sv", "kat", "m/s2", "m2v", "m3", "kph", "%", "l", "ms", "min", "h", "d", "week", "y")));
 
     /**
      * Default constructor.
@@ -106,84 +115,59 @@ public class ConfigDescriptionParameter {
     /**
      * Creates a new instance of this class with the specified parameters.
      *
-     * @param name
-     *            the name of the configuration parameter (must neither be null
+     * @param name the name of the configuration parameter (must neither be null
      *            nor empty)
-     * @param type
-     *            the data type of the configuration parameter (must not be
+     * @param type the data type of the configuration parameter (must not be
      *            null)
-     *
-     * @throws IllegalArgumentException
-     *             if the name is null or empty, or the type is null
+     * @throws IllegalArgumentException if the name is null or empty, or the type is null
      */
     public ConfigDescriptionParameter(String name, Type type) throws IllegalArgumentException {
         this(name, type, null, null, null, null, false, false, false, null, null, null, null, null, null, null, false,
-                true, null, null, null);
+                true, null, null, null, false);
     }
 
     /**
      * Creates a new instance of this class with the specified parameters.
      *
-     * @param name
-     *            the name of the configuration parameter (must neither be null
+     * @param name the name of the configuration parameter (must neither be null
      *            nor empty)
-     * @param type
-     *            the data type of the configuration parameter (nullable)
-     * @param minimum
-     *            the minimal value for numeric types, or the minimal length of
+     * @param type the data type of the configuration parameter (nullable)
+     * @param minimum the minimal value for numeric types, or the minimal length of
      *            strings, or the minimal number of selected options (nullable)
-     * @param maximum
-     *            the maximal value for numeric types, or the maximal length of
+     * @param maximum the maximal value for numeric types, or the maximal length of
      *            strings, or the maximal number of selected options (nullable)
-     * @param stepsize
-     *            the value granularity for a numeric value (nullable)
-     * @param pattern
-     *            the regular expression for a text type (nullable)
-     * @param required
-     *            specifies whether the value is required
-     * @param readOnly
-     *            specifies whether the value is read-only
-     * @param multiple
-     *            specifies whether multiple selections of options are allowed
-     * @param context
-     *            the context of the configuration parameter (can be null or
+     * @param stepsize the value granularity for a numeric value (nullable)
+     * @param pattern the regular expression for a text type (nullable)
+     * @param required specifies whether the value is required
+     * @param readOnly specifies whether the value is read-only
+     * @param multiple specifies whether multiple selections of options are allowed
+     * @param context the context of the configuration parameter (can be null or
      *            empty)
-     * @param defaultValue
-     *            the default value of the configuration parameter (can be null)
-     * @param label
-     *            a human readable label for the configuration parameter (can be
+     * @param defaultValue the default value of the configuration parameter (can be null)
+     * @param label a human readable label for the configuration parameter (can be
      *            null or empty)
-     * @param description
-     *            a human readable description for the configuration parameter
+     * @param description a human readable description for the configuration parameter
      *            (can be null or empty)
-     * @param filterCriteria
-     *            a list of filter criteria for values of a dynamic selection
+     * @param filterCriteria a list of filter criteria for values of a dynamic selection
      *            list (nullable)
-     * @param options
-     *            a list of element definitions of a static selection list
+     * @param options a list of element definitions of a static selection list
      *            (nullable)
-     * @param groupName
-     *            a string used to group parameters together into logical blocks
+     * @param groupName a string used to group parameters together into logical blocks
      *            so that the UI can display them together
-     * @param advanced
-     *            specifies if this is an advanced parameter. An advanced
+     * @param advanced specifies if this is an advanced parameter. An advanced
      *            parameter can be hidden in the UI to focus the user on
      *            important configuration
-     * @param limitToOptions
-     *            specifies that the users input is limited to the options list.
+     * @param limitToOptions specifies that the users input is limited to the options list.
      *            When set to true without options, this should have no affect.
      *            When set to true with options, the user can only select the
      *            options from the list When set to false with options, the user
      *            can enter values other than those in the list
-     * @param multipleLimit
-     *            specifies the maximum number of options that can be selected
+     * @param multipleLimit specifies the maximum number of options that can be selected
      *            when multiple is true
-     * @param unit
-     *            specifies the unit of measurements for the configuration parameter (nullable)
-     * @param unitLabel
-     *            specifies the unit label for the configuration parameter. This attribute can also be used to provide
+     * @param unit specifies the unit of measurements for the configuration parameter (nullable)
+     * @param unitLabel specifies the unit label for the configuration parameter. This attribute can also be used to
+     *            provide
      *            natural language units as iterations, runs, etc.
-     *
      * @throws IllegalArgumentException
      *             <ul>
      *             <li>if the name is null or empty, or the type is null</li>
@@ -197,8 +181,7 @@ public class ConfigDescriptionParameter {
             String pattern, Boolean required, Boolean readOnly, Boolean multiple, String context, String defaultValue,
             String label, String description, List<ParameterOption> options, List<FilterCriteria> filterCriteria,
             String groupName, Boolean advanced, Boolean limitToOptions, Integer multipleLimit, String unit,
-            String unitLabel) throws IllegalArgumentException {
-
+            String unitLabel, Boolean verify) throws IllegalArgumentException {
         if ((name == null) || (name.isEmpty())) {
             throw new IllegalArgumentException("The name must neither be null nor empty!");
         }
@@ -230,6 +213,9 @@ public class ConfigDescriptionParameter {
         this.unit = unit;
         this.unitLabel = unitLabel;
 
+        if (verify != null) {
+            this.verify = verify;
+        }
         if (readOnly != null) {
             this.readOnly = readOnly;
         }
@@ -456,6 +442,16 @@ public class ConfigDescriptionParameter {
         return unitLabel;
     }
 
+    /**
+     * Returns the verify flag for this parameter. Verify parameters are considered dangerous and the user should be
+     * alerted with an "Are you sure" flag in the UI.
+     *
+     * @return true if the parameter requires verification in the UI
+     */
+    public Boolean isVerifyable() {
+        return verify;
+    }
+
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -499,6 +495,10 @@ public class ConfigDescriptionParameter {
         sb.append(required);
 
         sb.append(", ");
+        sb.append("verify=");
+        sb.append(verify);
+
+        sb.append(", ");
         sb.append("multiple=");
         sb.append(multiple);
         sb.append(", ");
@@ -537,5 +537,4 @@ public class ConfigDescriptionParameter {
         sb.append("]");
         return sb.toString();
     }
-
 }

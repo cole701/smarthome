@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.model.script.internal;
 
@@ -19,6 +24,10 @@ import org.eclipse.smarthome.core.items.events.ItemEventFactory;
 import org.eclipse.smarthome.core.library.types.StringType;
 import org.eclipse.smarthome.core.voice.text.HumanLanguageInterpreter;
 import org.eclipse.smarthome.core.voice.text.InterpretationException;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,6 +41,9 @@ import org.slf4j.LoggerFactory;
  * @author Kai Kreuzer - Initial contribution and API
  *
  */
+@Component(service = HumanLanguageInterpreter.class, immediate = true, property = {
+        "service.pid=org.eclipse.smarthome.rulehli", "service.config.description.uri=voice:rulehli",
+        "service.config.label=Rule Voice Interpreter", "service.config.category=voice" })
 public class RuleHumanLanguageInterpreter implements HumanLanguageInterpreter {
 
     private final Logger logger = LoggerFactory.getLogger(RuleHumanLanguageInterpreter.class);
@@ -39,10 +51,12 @@ public class RuleHumanLanguageInterpreter implements HumanLanguageInterpreter {
     private String itemName = "VoiceCommand";
     private EventPublisher eventPublisher;
 
+    @Activate
     protected void activate(Map<String, Object> config) {
         modified(config);
     }
 
+    @Modified
     protected void modified(Map<String, Object> config) {
         if (config != null) {
             String configItemName = (String) config.get("item");
@@ -86,6 +100,7 @@ public class RuleHumanLanguageInterpreter implements HumanLanguageInterpreter {
         return Collections.emptySet();
     }
 
+    @Reference
     protected void setEventPublisher(EventPublisher eventPublisher) {
         this.eventPublisher = eventPublisher;
     }

@@ -1,17 +1,19 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.dto;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import org.eclipse.smarthome.config.core.Configuration;
 
 /**
  * This is a data transfer object that is used to serialize things.
@@ -36,29 +38,16 @@ public class ThingDTO {
     public ThingDTO() {
     }
 
-    public ThingDTO(String thingTypeUID, String UID, String label, String bridgeUID, List<ChannelDTO> channels,
-            Configuration configuration, Map<String, String> properties, String location) {
+    protected ThingDTO(String thingTypeUID, String UID, String label, String bridgeUID, List<ChannelDTO> channels,
+            Map<String, Object> configuration, Map<String, String> properties, String location) {
         this.thingTypeUID = thingTypeUID;
         this.UID = UID;
         this.label = label;
         this.bridgeUID = bridgeUID;
         this.channels = channels;
-        this.configuration = toMap(configuration);
+        this.configuration = configuration;
         this.properties = properties;
         this.location = location;
-    }
-
-    private Map<String, Object> toMap(Configuration configuration) {
-
-        if (configuration == null) {
-            return null;
-        }
-
-        Map<String, Object> configurationMap = new HashMap<>(configuration.keySet().size());
-        for (String key : configuration.keySet()) {
-            configurationMap.put(key, configuration.get(key));
-        }
-        return configurationMap;
     }
 
 }

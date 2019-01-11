@@ -1,15 +1,23 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.internal;
 
 import java.math.BigDecimal;
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
+
 import org.eclipse.smarthome.config.core.ConfigDescription;
 import org.eclipse.smarthome.config.core.ConfigDescriptionParameter;
 import org.eclipse.smarthome.config.core.ConfigDescriptionParameter.Type;
@@ -23,17 +31,20 @@ import org.eclipse.smarthome.core.thing.binding.builder.ChannelBuilder;
 import org.eclipse.smarthome.core.thing.type.ChannelDefinition;
 import org.eclipse.smarthome.core.thing.type.ChannelGroupDefinition;
 import org.eclipse.smarthome.core.thing.type.ChannelGroupType;
+import org.eclipse.smarthome.core.thing.type.ChannelGroupTypeRegistry;
 import org.eclipse.smarthome.core.thing.type.ChannelType;
+import org.eclipse.smarthome.core.thing.type.ChannelTypeRegistry;
 import org.eclipse.smarthome.core.thing.type.ThingType;
-import org.eclipse.smarthome.core.thing.type.TypeResolver;
+import org.osgi.framework.BundleContext;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.ServiceReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.google.common.collect.Lists;
 
 /**
  * Utility methods for creation of Things.
  *
- * It is supposed to contain methods that are commonly shared between {@link ThingManager} and {@link ThingFactory}.
+ * It is supposed to contain methods that are commonly shared between {@link ThingManagerImpl} and {@link ThingFactory}.
  *
  * @author Simon Kaufmann - Initial contribution and API
  * @author Kai Kreuzer - Changed creation of channels to not require a thing type
@@ -41,7 +52,7 @@ import com.google.common.collect.Lists;
  */
 public class ThingFactoryHelper {
 
-    private static Logger logger = LoggerFactory.getLogger(ThingFactory.class);
+    private static Logger logger = LoggerFactory.getLogger(ThingFactoryHelper.class);
 
     /**
      * Create {@link Channel} instances for the given Thing.
@@ -54,7 +65,7 @@ public class ThingFactoryHelper {
      */
     public static List<Channel> createChannels(ThingType thingType, ThingUID thingUID,
             ConfigDescriptionRegistry configDescriptionRegistry) {
-        List<Channel> channels = Lists.newArrayList();
+        List<Channel> channels = new ArrayList<>();
         List<ChannelDefinition> channelDefinitions = thingType.getChannelDefinitions();
         for (ChannelDefinition channelDefinition : channelDefinitions) {
             Channel channel = createChannel(channelDefinition, thingUID, null, configDescriptionRegistry);
@@ -63,29 +74,74 @@ public class ThingFactoryHelper {
             }
         }
         List<ChannelGroupDefinition> channelGroupDefinitions = thingType.getChannelGroupDefinitions();
-        for (ChannelGroupDefinition channelGroupDefinition : channelGroupDefinitions) {
-            ChannelGroupType channelGroupType = TypeResolver.resolve(channelGroupDefinition.getTypeUID());
-            if (channelGroupType != null) {
-                List<ChannelDefinition> channelGroupChannelDefinitions = channelGroupType.getChannelDefinitions();
-                for (ChannelDefinition channelDefinition : channelGroupChannelDefinitions) {
-                    Channel channel = createChannel(channelDefinition, thingUID, channelGroupDefinition.getId(),
-                            configDescriptionRegistry);
-                    if (channel != null) {
-                        channels.add(channel);
-                    }
+        withChannelGroupTypeRegistry(channelGroupTypeRegistry -> {
+            for (ChannelGroupDefinition channelGroupDefinition : channelGroupDefinitions) {
+                ChannelGroupType channelGroupType = null;
+                if (channelGroupTypeRegistry != null) {
+                    channelGroupType = channelGroupTypeRegistry
+                            .getChannelGroupType(channelGroupDefinition.getTypeUID());
                 }
-            } else {
-                logger.warn(
-                        "Could not create channels for channel group '{}' for thing type '{}', because channel group type '{}' could not be found.",
-                        channelGroupDefinition.getId(), thingUID, channelGroupDefinition.getTypeUID());
+                if (channelGroupType != null) {
+                    List<ChannelDefinition> channelGroupChannelDefinitions = channelGroupType.getChannelDefinitions();
+                    for (ChannelDefinition channelDefinition : channelGroupChannelDefinitions) {
+                        Channel channel = createChannel(channelDefinition, thingUID, channelGroupDefinition.getId(),
+                                configDescriptionRegistry);
+                        if (channel != null) {
+                            channels.add(channel);
+                        }
+                    }
+                } else {
+                    logger.warn(
+                            "Could not create channels for channel group '{}' for thing type '{}', because channel group type '{}' could not be found.",
+                            channelGroupDefinition.getId(), thingUID, channelGroupDefinition.getTypeUID());
+                }
+            }
+            return null;
+        });
+        return channels;
+    }
+
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static <T> T withChannelGroupTypeRegistry(Function<ChannelGroupTypeRegistry, T> consumer) {
+        BundleContext bundleContext = FrameworkUtil.getBundle(ThingFactoryHelper.class).getBundleContext();
+        ServiceReference ref = bundleContext.getServiceReference(ChannelGroupTypeRegistry.class.getName());
+        try {
+            ChannelGroupTypeRegistry channelGroupTypeRegistry = null;
+            if (ref != null) {
+                channelGroupTypeRegistry = (ChannelGroupTypeRegistry) bundleContext.getService(ref);
+            }
+            return consumer.apply(channelGroupTypeRegistry);
+        } finally {
+            if (ref != null) {
+                bundleContext.ungetService(ref);
             }
         }
-        return channels;
+    }
+
+    @SuppressWarnings({ "rawtypes", "unchecked" })
+    private static <T> T withChannelTypeRegistry(Function<ChannelTypeRegistry, T> consumer) {
+        BundleContext bundleContext = FrameworkUtil.getBundle(ThingFactoryHelper.class).getBundleContext();
+        ServiceReference ref = bundleContext.getServiceReference(ChannelTypeRegistry.class.getName());
+        try {
+            ChannelTypeRegistry channelTypeRegistry = null;
+            if (ref != null) {
+                channelTypeRegistry = (ChannelTypeRegistry) bundleContext.getService(ref);
+            }
+            return consumer.apply(channelTypeRegistry);
+        } finally {
+            if (ref != null) {
+                bundleContext.ungetService(ref);
+            }
+        }
     }
 
     private static Channel createChannel(ChannelDefinition channelDefinition, ThingUID thingUID, String groupId,
             ConfigDescriptionRegistry configDescriptionRegistry) {
-        ChannelType type = TypeResolver.resolve(channelDefinition.getChannelTypeUID());
+        ChannelType type = withChannelTypeRegistry(channelTypeRegistry -> {
+            return (channelTypeRegistry != null)
+                    ? channelTypeRegistry.getChannelType(channelDefinition.getChannelTypeUID())
+                    : null;
+        });
         if (type == null) {
             logger.warn(
                     "Could not create channel '{}' for thing type '{}', because channel type '{}' could not be found.",
@@ -93,22 +149,41 @@ public class ThingFactoryHelper {
             return null;
         }
 
-        ChannelBuilder channelBuilder = ChannelBuilder
-                .create(new ChannelUID(thingUID, groupId, channelDefinition.getId()), type.getItemType())
-                .withType(type.getUID()).withDefaultTags(type.getTags()).withKind(type.getKind());
+        ChannelUID channelUID = new ChannelUID(thingUID, groupId, channelDefinition.getId());
+        ChannelBuilder channelBuilder = createChannelBuilder(channelUID, type, configDescriptionRegistry);
 
         // If we want to override the label, add it...
-        if (channelDefinition.getLabel() != null) {
-            channelBuilder = channelBuilder.withLabel(channelDefinition.getLabel());
+        final String label = channelDefinition.getLabel();
+        if (label != null) {
+            channelBuilder = channelBuilder.withLabel(label);
         }
 
         // If we want to override the description, add it...
-        if (channelDefinition.getDescription() != null) {
-            channelBuilder = channelBuilder.withDescription(channelDefinition.getDescription());
+        final String description = channelDefinition.getDescription();
+        if (description != null) {
+            channelBuilder = channelBuilder.withDescription(description);
+        }
+
+        channelBuilder = channelBuilder.withProperties(channelDefinition.getProperties());
+        return channelBuilder.build();
+    }
+
+    static ChannelBuilder createChannelBuilder(ChannelUID channelUID, ChannelType channelType,
+            ConfigDescriptionRegistry configDescriptionRegistry) {
+        ChannelBuilder channelBuilder = ChannelBuilder.create(channelUID, channelType.getItemType()) //
+                .withType(channelType.getUID()) //
+                .withDefaultTags(channelType.getTags()) //
+                .withKind(channelType.getKind()) //
+                .withLabel(channelType.getLabel()) //
+                .withAutoUpdatePolicy(channelType.getAutoUpdatePolicy());
+
+        String description = channelType.getDescription();
+        if (description != null) {
+            channelBuilder = channelBuilder.withDescription(description);
         }
 
         // Initialize channel configuration with default-values
-        URI channelConfigDescriptionURI = type.getConfigDescriptionURI();
+        URI channelConfigDescriptionURI = channelType.getConfigDescriptionURI();
         if (configDescriptionRegistry != null && channelConfigDescriptionURI != null) {
             ConfigDescription cd = configDescriptionRegistry.getConfigDescription(channelConfigDescriptionURI);
             if (cd != null) {
@@ -126,10 +201,7 @@ public class ThingFactoryHelper {
             }
         }
 
-        channelBuilder = channelBuilder.withProperties(channelDefinition.getProperties());
-
-        Channel channel = channelBuilder.build();
-        return channel;
+        return channelBuilder;
     }
 
     /**
@@ -157,8 +229,9 @@ public class ThingFactoryHelper {
                     return null;
             }
         } catch (NumberFormatException ex) {
-            LoggerFactory.getLogger(ThingFactory.class).warn("Could not parse default value '" + defaultValue
-                    + "' as type '" + parameterType + "': " + ex.getMessage(), ex);
+            LoggerFactory.getLogger(ThingFactoryHelper.class).warn(
+                    "Could not parse default value '{}' as type '{}': {}", defaultValue, parameterType, ex.getMessage(),
+                    ex);
             return null;
         }
     }
@@ -166,12 +239,11 @@ public class ThingFactoryHelper {
     /**
      * Apply the {@link ThingType}'s default values to the given {@link Configuration}.
      *
-     * @param configuration the {@link Configuration} where the default values should be added (may be null, but method
-     *            won't have any effect then)
+     * @param configuration the {@link Configuration} where the default values should be added (may be null,
+     *            but method won't have any effect then)
      * @param thingType the {@link ThingType} where to look for the default values (must not be null)
      * @param configDescriptionRegistry the {@link ConfigDescriptionRegistry} to use (may be null, but method won't have
-     *            any
-     *            effect then)
+     *            any effect then)
      */
     public static void applyDefaultConfiguration(Configuration configuration, ThingType thingType,
             ConfigDescriptionRegistry configDescriptionRegistry) {

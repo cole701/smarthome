@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.xml.util;
 
@@ -90,10 +95,8 @@ public class NodeIterator implements Iterator<Object> {
      *
      * @param nodeName the name of the node to be read next (must neither be null, nor empty)
      * @param required true if the occurrence of the node has to be ensured
-     *
      * @return the next object if the specified name of the node fits to the next node,
      *         otherwise null
-     *
      * @throws ConversionException if the specified node could not be found in the next node
      *             however it was specified as required
      */
@@ -126,20 +129,15 @@ public class NodeIterator implements Iterator<Object> {
      * The next node must be of the type {@link NodeAttributes}.
      *
      * @param nodeName the name of the node to be read next (must neither be null, nor empty)
-     *
      * @param attributeName the name of the attribute of the node to be read next
      *            (must neither be null, nor empty)
-     *
      * @param required true if the occurrence of the node's attribute has to be ensured
-     *
      * @return the next attribute of the specified name of the node and attribute
      *         (could be null or empty)
-     *
      * @throws ConversionException if the specified node's attribute could not be found in the
      *             next node however it was specified as required
      */
     public String nextAttribute(String nodeName, String attributeName, boolean required) throws ConversionException {
-
         if (hasNext()) {
             Object nextNode = next();
 
@@ -169,9 +167,7 @@ public class NodeIterator implements Iterator<Object> {
      *
      * @param nodeName the name of the node to be read next (must neither be null, nor empty)
      * @param required true if the occurrence of the node's value has to be ensured
-     *
      * @return the next value of the specified name of the node (could be null or empty)
-     *
      * @throws ConversionException if the specified node's value could not be found in the
      *             next node however it was specified as required
      */
@@ -194,9 +190,7 @@ public class NodeIterator implements Iterator<Object> {
      *
      * @param nodeName the name of the node to be read next (must neither be null, nor empty)
      * @param required true if the occurrence of the node's list of values has to be ensured
-     *
      * @return the next list of values of the specified name of the node (could be null or empty)
-     *
      * @throws ConversionException if the specified node's list of values could not be found
      *             in the next node however it was specified as required
      */

@@ -1,14 +1,21 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.ui.basic.internal.render;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.util.HashMap;
@@ -17,6 +24,10 @@ import java.util.Map;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.smarthome.core.i18n.I18nUtil;
+import org.eclipse.smarthome.core.i18n.LocaleProvider;
+import org.eclipse.smarthome.core.i18n.TranslationProvider;
+import org.eclipse.smarthome.core.library.types.QuantityType;
 import org.eclipse.smarthome.core.types.State;
 import org.eclipse.smarthome.model.sitemap.Widget;
 import org.eclipse.smarthome.ui.basic.internal.WebAppActivator;
@@ -24,7 +35,7 @@ import org.eclipse.smarthome.ui.basic.internal.WebAppConfig;
 import org.eclipse.smarthome.ui.basic.render.RenderException;
 import org.eclipse.smarthome.ui.basic.render.WidgetRenderer;
 import org.eclipse.smarthome.ui.items.ItemUIRegistry;
-import org.osgi.service.component.ComponentContext;
+import org.osgi.framework.BundleContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,13 +48,17 @@ import org.slf4j.LoggerFactory;
  * @author Vlad Ivanov - BasicUI changes
  *
  */
-abstract public class AbstractWidgetRenderer implements WidgetRenderer {
+public abstract class AbstractWidgetRenderer implements WidgetRenderer {
 
     private final Logger logger = LoggerFactory.getLogger(AbstractWidgetRenderer.class);
 
     protected ItemUIRegistry itemUIRegistry;
+    protected TranslationProvider i18nProvider;
+    protected LocaleProvider localeProvider;
 
     protected WebAppConfig config;
+
+    private BundleContext bundleContext;
 
     /* the file extension of the snippets */
     protected static final String SNIPPET_EXT = ".html";
@@ -52,13 +67,13 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
     protected static final String SNIPPET_LOCATION = "snippets/";
 
     /* a local cache so we do not have to read the snippets over and over again from the bundle */
-    protected static final Map<String, String> snippetCache = new HashMap<String, String>();
+    protected static final Map<String, String> SNIPPET_CACHE = new HashMap<String, String>();
 
-    public void setItemUIRegistry(ItemUIRegistry itemUIRegistry) {
+    protected void setItemUIRegistry(ItemUIRegistry itemUIRegistry) {
         this.itemUIRegistry = itemUIRegistry;
     }
 
-    public void unsetItemUIRegistry(ItemUIRegistry itemUIRegistry) {
+    protected void unsetItemUIRegistry(ItemUIRegistry itemUIRegistry) {
         this.itemUIRegistry = null;
     }
 
@@ -66,10 +81,28 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
         return itemUIRegistry;
     }
 
-    protected void activate(ComponentContext context) {
+    protected void setLocaleProvider(LocaleProvider localeProvider) {
+        this.localeProvider = localeProvider;
     }
 
-    protected void deactivate(ComponentContext context) {
+    protected void unsetLocaleProvider(final LocaleProvider localeProvider) {
+        this.localeProvider = null;
+    }
+
+    protected void setTranslationProvider(TranslationProvider i18nProvider) {
+        this.i18nProvider = i18nProvider;
+    }
+
+    protected void unsetTranslationProvider(TranslationProvider i18nProvider) {
+        this.i18nProvider = null;
+    }
+
+    protected void activate(BundleContext context) {
+        this.bundleContext = context;
+    }
+
+    protected void deactivate(BundleContext context) {
+        this.bundleContext = null;
     }
 
     /**
@@ -79,12 +112,16 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
      * @param w corresponding widget
      * @return
      */
-    protected String preprocessSnippet(String snippet, Widget w) {
+    protected String preprocessSnippet(String originalSnippet, Widget w) {
+        String snippet = originalSnippet;
         snippet = StringUtils.replace(snippet, "%widget_id%", itemUIRegistry.getWidgetId(w));
         snippet = StringUtils.replace(snippet, "%icon_type%", config.getIconType());
         snippet = StringUtils.replace(snippet, "%item%", w.getItem() != null ? w.getItem() : "");
-        snippet = StringUtils.replace(snippet, "%label%", getLabel(w));
-        snippet = StringUtils.replace(snippet, "%value%", getValue(w));
+        // Optimization: avoid calling 3 times itemUIRegistry.getLabel(w)
+        String text = itemUIRegistry.getLabel(w);
+        snippet = StringUtils.replace(snippet, "%label%", getLabel(text));
+        snippet = StringUtils.replace(snippet, "%value%", getValue(text));
+        snippet = StringUtils.replace(snippet, "%has_value%", new Boolean(hasValue(text)).toString());
         snippet = StringUtils.replace(snippet, "%visibility_class%",
                 itemUIRegistry.getVisiblity(w) ? "" : "mdl-form__row--hidden");
 
@@ -105,20 +142,20 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
      * @throws RenderException if snippet could not be read
      */
     protected synchronized String getSnippet(String elementType) throws RenderException {
-        elementType = elementType.toLowerCase();
-        String snippet = snippetCache.get(elementType);
+        String lowerTypeElementType = elementType.toLowerCase();
+        String snippet = SNIPPET_CACHE.get(lowerTypeElementType);
         if (snippet == null) {
-            String snippetLocation = SNIPPET_LOCATION + elementType + SNIPPET_EXT;
+            String snippetLocation = SNIPPET_LOCATION + lowerTypeElementType + SNIPPET_EXT;
             URL entry = WebAppActivator.getContext().getBundle().getEntry(snippetLocation);
             if (entry != null) {
                 try {
                     snippet = IOUtils.toString(entry.openStream());
-                    snippetCache.put(elementType, snippet);
+                    SNIPPET_CACHE.put(lowerTypeElementType, snippet);
                 } catch (IOException e) {
-                    logger.warn("Cannot load snippet for element type '{}'", elementType, e);
+                    logger.warn("Cannot load snippet for element type '{}'", lowerTypeElementType, e);
                 }
             } else {
-                throw new RenderException("Cannot find a snippet for element type '" + elementType + "'");
+                throw new RenderException("Cannot find a snippet for element type '" + lowerTypeElementType + "'");
             }
         }
         return snippet;
@@ -131,14 +168,23 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
      * @return the label to use for the widget
      */
     public String getLabel(Widget w) {
-        String label = itemUIRegistry.getLabel(w);
-        int index = label.indexOf('[');
+        return getLabel(itemUIRegistry.getLabel(w));
+    }
+
+    /**
+     * Retrieves the label for a widget
+     *
+     * @param text the text containing the label and an optional value around []
+     * @return the label extracted from the text
+     */
+    protected String getLabel(String text) {
+        int index = text.indexOf('[');
 
         if (index != -1) {
-            label = label.substring(0, index);
+            return escapeHtml(text.substring(0, index));
+        } else {
+            return escapeHtml(text);
         }
-
-        return escapeHtml(label);
     }
 
     /**
@@ -148,14 +194,43 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
      * @return value to use for the widget
      */
     public String getValue(Widget w) {
-        String label = itemUIRegistry.getLabel(w);
-        int index = label.indexOf('[');
+        return getValue(itemUIRegistry.getLabel(w));
+    }
+
+    /**
+     * Returns formatted value of the item associated to widget
+     *
+     * @param text the text containing the label and an optional value around []
+     * @return the value extracted from the text or "" if not present
+     */
+    protected String getValue(String text) {
+        int index = text.indexOf('[');
 
         if (index != -1) {
-            return escapeHtml(label.substring(index + 1, label.length() - 1));
+            return escapeHtml(text.substring(index + 1, text.length() - 1));
         } else {
             return "";
         }
+    }
+
+    /**
+     * Returns whether the item associated to widget has a value or not
+     *
+     * @param w widget
+     * @return true if the item associated to widget has a value
+     */
+    public boolean hasValue(Widget w) {
+        return hasValue(itemUIRegistry.getLabel(w));
+    }
+
+    /**
+     * Returns whether the item associated to widget has a value or not
+     *
+     * @param text the text containing the label and an optional value around []
+     * @return true if the text contains a value
+     */
+    protected boolean hasValue(String text) {
+        return (text.indexOf('[') != -1);
     }
 
     /**
@@ -187,9 +262,10 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
      *            The snippet to translate
      * @return The updated snippet
      */
-    protected String processColor(Widget w, String snippet) {
+    protected String processColor(Widget w, String originalSnippet) {
         String style = "";
         String color = "";
+        String snippet = originalSnippet;
 
         color = itemUIRegistry.getLabelColor(w);
 
@@ -229,5 +305,32 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
     @Override
     public void setConfig(WebAppConfig config) {
         this.config = config;
+    }
+
+    protected String localizeText(String key) {
+        String result = "";
+        if (I18nUtil.isConstant(key)) {
+            result = this.i18nProvider.getText(this.bundleContext.getBundle(), I18nUtil.stripConstant(key), "",
+                    this.localeProvider.getLocale());
+        }
+        return result;
+    }
+
+    protected String getUnitForWidget(Widget widget) {
+        return itemUIRegistry.getUnitForWidget(widget);
+    }
+
+    protected State convertStateToLabelUnit(QuantityType<?> state, String label) {
+        return itemUIRegistry.convertStateToLabelUnit(state, label);
+    }
+
+    protected boolean isValidURL(String url) {
+        if (url != null && !url.isEmpty()) {
+            try {
+                return new URL(url).toURI() != null ? true : false;
+            } catch (MalformedURLException | URISyntaxException ex) {
+            }
+        }
+        return false;
     }
 }

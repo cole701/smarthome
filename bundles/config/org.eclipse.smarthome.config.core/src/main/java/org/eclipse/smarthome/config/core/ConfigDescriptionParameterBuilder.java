@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.core;
 
@@ -45,6 +50,7 @@ public class ConfigDescriptionParameterBuilder {
 
     private Boolean limitToOptions;
     private Boolean advanced;
+    private Boolean verify;
 
     private List<ParameterOption> options = new ArrayList<ParameterOption>();
     private List<FilterCriteria> filterCriteria = new ArrayList<FilterCriteria>();
@@ -68,7 +74,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the minimum value of the configuration parameter
      *
-     * @param min
+     * @param min the min value of the {@link ConfigDescriptionParameter}
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withMinimum(BigDecimal min) {
         this.min = min;
@@ -78,7 +85,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the maximum value of the configuration parameter
      *
-     * @param max
+     * @param max the max value of the {@link ConfigDescriptionParameter}
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withMaximum(BigDecimal max) {
         this.max = max;
@@ -88,7 +96,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the step size of the configuration parameter
      *
-     * @param step
+     * @param step the step of the {@link ConfigDescriptionParameter}
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withStepSize(BigDecimal step) {
         this.step = step;
@@ -98,7 +107,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the pattern of the configuration parameter
      *
-     * @param pattern
+     * @param pattern the pattern for the {@link ConfigDescriptionParameter}
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withPattern(String pattern) {
         this.pattern = pattern;
@@ -108,7 +118,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the configuration parameter as read only
      *
-     * @param readOnly
+     * @param readOnly <code>true</code> to make the parameter read only
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withReadOnly(Boolean readOnly) {
         this.readOnly = readOnly;
@@ -118,7 +129,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the configuration parameter to allow multiple selection
      *
-     * @param multiple
+     * @param multiple <code>true</code> for multiple selection
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withMultiple(Boolean multiple) {
         this.multiple = multiple;
@@ -128,7 +140,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the configuration parameter to allow multiple selection
      *
-     * @param multiple
+     * @param multipleLimit the parameters limit
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withMultipleLimit(Integer multipleLimit) {
         this.multipleLimit = multipleLimit;
@@ -138,7 +151,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the context of the configuration parameter
      *
-     * @param context
+     * @param context the context for this parameter
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withContext(String context) {
         this.context = context;
@@ -148,7 +162,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the configuration parameter to be required
      *
-     * @param required
+     * @param required <code>true</code> if the parameter is required
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withRequired(Boolean required) {
         this.required = required;
@@ -158,7 +173,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the default value of the configuration parameter
      *
-     * @param defaultValue
+     * @param defaultValue the default value of the configuration parameter
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withDefault(String defaultValue) {
         this.defaultValue = defaultValue;
@@ -168,7 +184,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the label of the configuration parameter
      *
-     * @param label
+     * @param label a short user friendly description
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withLabel(String label) {
         this.label = label;
@@ -178,7 +195,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the description of the configuration parameter
      *
-     * @param description
+     * @param description a detailed user friendly description
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withDescription(String description) {
         this.description = description;
@@ -188,7 +206,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the options of the configuration parameter
      *
-     * @param options
+     * @param options the options for this parameter
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withOptions(List<ParameterOption> options) {
         this.options = options;
@@ -198,7 +217,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the configuration parameter as an advanced parameter
      *
-     * @param options
+     * @param advanced <code>true</code> to make the parameter advanced
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withAdvanced(Boolean advanced) {
         this.advanced = advanced;
@@ -206,9 +226,20 @@ public class ConfigDescriptionParameterBuilder {
     }
 
     /**
+     * Set the configuration parameter as a verifyable parameter
+     *
+     * @param verify flag
+     */
+    public ConfigDescriptionParameterBuilder withVerify(Boolean verify) {
+        this.verify = verify;
+        return this;
+    }
+
+    /**
      * Set the configuration parameter to be limited to the values in the options list
      *
-     * @param options
+     * @param limitToOptions <code>true</code> if only the declared options are acceptable
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withLimitToOptions(Boolean limitToOptions) {
         this.limitToOptions = limitToOptions;
@@ -218,7 +249,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the configuration parameter to be limited to the values in the options list
      *
-     * @param options
+     * @param groupName the group name of this config description parameter
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withGroupName(String groupName) {
         this.groupName = groupName;
@@ -228,7 +260,8 @@ public class ConfigDescriptionParameterBuilder {
     /**
      * Set the filter criteria of the configuration parameter
      *
-     * @param filterCriteria
+     * @param filterCriteria the filter criteria
+     * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withFilterCriteria(List<FilterCriteria> filterCriteria) {
         this.filterCriteria = filterCriteria;
@@ -239,7 +272,6 @@ public class ConfigDescriptionParameterBuilder {
      * Sets the unit of the configuration parameter.
      *
      * @param unit the unit to be set
-     *
      * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withUnit(String unit) {
@@ -251,7 +283,6 @@ public class ConfigDescriptionParameterBuilder {
      * Sets the unit label of the configuration parameter.
      *
      * @param unitLabel the unit label to be set
-     *
      * @return the updated builder instance
      */
     public ConfigDescriptionParameterBuilder withUnitLabel(String unitLabel) {
@@ -267,7 +298,7 @@ public class ConfigDescriptionParameterBuilder {
     public ConfigDescriptionParameter build() throws IllegalArgumentException {
         return new ConfigDescriptionParameter(name, type, min, max, step, pattern, required, readOnly, multiple,
                 context, defaultValue, label, description, options, filterCriteria, groupName, advanced, limitToOptions,
-                multipleLimit, unit, unitLabel);
+                multipleLimit, unit, unitLabel, verify);
     }
 
 }

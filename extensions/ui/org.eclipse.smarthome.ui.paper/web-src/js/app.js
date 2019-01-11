@@ -1,94 +1,84 @@
-angular.module('PaperUI', [ 'PaperUI.controllers', 'PaperUI.controllers.control', 'PaperUI.controllers.setup', 'PaperUI.controllers.configuration', 'PaperUI.controllers.extension', 'PaperUI.controllers.rules', 'PaperUI.services', 'PaperUI.services.rest', 'PaperUI.services.repositories', 'PaperUI.extensions', 'ngRoute', 'ngResource', 'ngMaterial', 'ngMessages', 'ngSanitize', 'ui.sortable' ]).config([ '$routeProvider', '$httpProvider', 'globalConfig', '$mdDateLocaleProvider', 'moduleConfig', 'dateTimeProvider', function($routeProvider, httpProvider, globalConfig, $mdDateLocaleProvider, moduleConfig, dateTimeProvider) {
-    $routeProvider.when('/control', {
-        templateUrl : 'partials/control.html',
-        controller : 'ControlPageController',
-        title : 'Control',
-        simpleHeader : true
-    }).when('/setup', {
+angular.module('PaperUI', [//
+'PaperUI.controllers',//
+'PaperUI.controllers.setup',//
+'PaperUI.controllers.configuration',//
+'PaperUI.control',// 
+'PaperUI.things',//
+'PaperUI.bindings',//
+'PaperUI.items',//
+'PaperUI.controllers.extension',//
+'PaperUI.controllers.rules',//
+'PaperUI.services',//
+'PaperUI.services.rest',//
+'PaperUI.services.repositories', //
+'PaperUI.extensions',//
+'PaperUI.directive.configDescription',//
+'ngRoute', 'ngResource', 'ngMaterial', 'ngMessages', 'ngSanitize', 'material.components.expansionPanels' ]) //
+.config([ '$routeProvider', '$httpProvider', 'globalConfig', '$mdDateLocaleProvider', 'moduleConfig', 'dateTimeProvider', function($routeProvider, httpProvider, globalConfig, $mdDateLocaleProvider, moduleConfig, dateTimeProvider) {
+    $routeProvider.when('/setup', {
         redirectTo : '/inbox/search'
     }).when('/inbox', {
         redirectTo : '/inbox/search'
     }).when('/inbox/setup', {
         redirectTo : '/inbox/setup/bindings'
     }).when('/inbox/search', {
-        templateUrl : 'partials/setup.html',
+        templateUrl : 'partials/setup/setup.html',
         controller : 'SetupWizardController',
         title : 'Inbox'
     }).when('/inbox/setup/bindings', {
-        templateUrl : 'partials/setup.html',
+        templateUrl : 'partials/setup/setup.html',
         controller : 'SetupWizardController',
         title : 'Inbox'
     }).when('/inbox/setup/search/:bindingId', {
-        templateUrl : 'partials/setup.html',
+        templateUrl : 'partials/setup/setup.html',
         controller : 'SetupWizardController',
         title : 'Inbox'
     }).when('/inbox/setup/thing-types/:bindingId', {
-        templateUrl : 'partials/setup.html',
+        templateUrl : 'partials/setup/setup.html',
         controller : 'SetupWizardController',
         title : 'Inbox'
     }).when('/inbox/setup/add/:thingTypeUID', {
-        templateUrl : 'partials/setup.html',
+        templateUrl : 'partials/setup/setup.html',
         controller : 'SetupWizardController',
         title : 'Inbox'
     }).when('/configuration', {
         redirectTo : '/configuration/bindings'
-    }).when('/configuration/bindings', {
-        templateUrl : 'partials/configuration.html',
-        controller : 'ConfigurationPageController',
-        title : 'Configuration'
     }).when('/configuration/services', {
-        templateUrl : 'partials/configuration.html',
-        controller : 'ConfigurationPageController',
-        title : 'Configuration'
-    }).when('/configuration/things', {
-        templateUrl : 'partials/configuration.html',
-        controller : 'ConfigurationPageController',
-        title : 'Configuration'
-    }).when('/configuration/items', {
-        templateUrl : 'partials/configuration.html',
-        controller : 'ConfigurationPageController',
-        title : 'Configuration'
-    }).when('/configuration/item/edit/:itemName', {
-        templateUrl : 'partials/item.config.html',
-        controller : 'ItemSetupController'
-    }).when('/configuration/item/create', {
-        templateUrl : 'partials/item.config.html',
-        controller : 'ItemSetupController',
-        title : 'Create item'
-    }).when('/configuration/things/view/:thingUID', {
-        templateUrl : 'partials/configuration.html',
-        controller : 'ConfigurationPageController',
-        title : 'Configuration'
-    }).when('/configuration/things/edit/:thingUID', {
-        templateUrl : 'partials/configuration.html',
-        controller : 'ConfigurationPageController',
+        templateUrl : 'partials/services/configuration.services.html',
+        controller : 'ServicesController',
+        title : 'Configuration',
+        reloadOnSearch : false
+    }).when('/configuration/services/:servicePID', {
+        templateUrl : 'partials/services/configuration.multiService.html',
+        controller : 'MultiServicesController',
         title : 'Configuration'
     }).when('/configuration/system', {
-        templateUrl : 'partials/system.configuration.html',
-        controller : 'ConfigurationPageController',
+        templateUrl : 'partials/system/system.configuration.html',
+        controller : 'SystemController',
         title : 'Configuration'
     }).when('/extensions', {
-        templateUrl : 'partials/extensions.html',
+        templateUrl : 'partials/extensions/extensions.html',
         controller : 'ExtensionPageController',
-        title : moduleConfig.extensions && moduleConfig.extensions.hasOwnProperty('label') && moduleConfig.extensions['label'] ? moduleConfig.extensions['label'] : 'Extensions'
+        title : moduleConfig.extensions && moduleConfig.extensions.hasOwnProperty('label') && moduleConfig.extensions['label'] ? moduleConfig.extensions['label'] : 'Extensions',
+        reloadOnSearch : false
     }).when('/rules', {
-        templateUrl : 'partials/rules.html',
+        templateUrl : 'partials/rules/rules.html',
         controller : 'RulesPageController',
         title : 'Rules'
     }).when('/rules/new', {
-        templateUrl : 'partials/rules.html',
+        templateUrl : 'partials/rules/rules.html',
         controller : 'RulesPageController',
         title : 'Rules'
     }).when('/rules/catalog', {
-        templateUrl : 'partials/rules.html',
+        templateUrl : 'partials/rules/rules.html',
         controller : 'ExtensionPageController',
         title : 'Rules'
     }).when('/rules/template/:templateUID', {
-        templateUrl : 'partials/rules.html',
+        templateUrl : 'partials/rules/rules.html',
         controller : 'RuleTemplateController',
         title : 'Rules'
     }).when('/rules/configure/:ruleUID', {
-        templateUrl : 'partials/rules.html',
+        templateUrl : 'partials/rules/rules.html',
         controller : 'RulesPageController',
         title : 'Rules'
     }).when('/preferences', {
@@ -322,6 +312,23 @@ angular.module('PaperUI', [ 'PaperUI.controllers', 'PaperUI.controllers.control'
             }
         }
     };
+}).directive('overflown', function() {
+    return {
+        restrict : 'A',
+        link : function(scope, element, attrs) {
+            setTimeout(function() {
+                if (element.innerWidth() < element[0].children[0].scrollWidth) {
+                    $(element[0].children[0]).addClass('reducedWidth');
+                } else {
+                    $(element[0].children[1]).addClass('hidden');
+                }
+            });
+            element[0].children[1].addEventListener('click', function(event) {
+                element.toggleClass('nowrap');
+                element[0].children[1].innerText = event.target.innerText == "more" ? "less" : "more";
+            });
+        }
+    };
 }).run([ '$location', '$rootScope', 'globalConfig', function($location, $rootScope, globalConfig) {
     var original = $location.path;
     $rootScope.$on('$routeChangeSuccess', function(event, current, previous) {
@@ -336,7 +343,6 @@ angular.module('PaperUI', [ 'PaperUI.controllers', 'PaperUI.controllers.control'
     $rootScope.asArray = function(object) {
         return $.isArray(object) ? object : object ? [ object ] : [];
     }
-    $rootScope.itemUpdates = {};
     $rootScope.data = [];
     $rootScope.navigateToRoot = function() {
         $location.path('');

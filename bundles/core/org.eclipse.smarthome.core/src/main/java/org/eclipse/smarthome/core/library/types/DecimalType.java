@@ -1,21 +1,25 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.library.types;
 
 import java.math.BigDecimal;
 import java.util.IllegalFormatConversionException;
 
-import org.eclipse.smarthome.core.library.internal.StateConverterUtil;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.types.Command;
-import org.eclipse.smarthome.core.types.Convertible;
 import org.eclipse.smarthome.core.types.PrimitiveType;
 import org.eclipse.smarthome.core.types.State;
-import org.eclipse.smarthome.core.types.UnDefType;
 
 /**
  * The decimal type uses a BigDecimal internally and thus can be used for
@@ -24,11 +28,12 @@ import org.eclipse.smarthome.core.types.UnDefType;
  * @author Kai Kreuzer - Initial contribution and API
  *
  */
-public class DecimalType extends Number implements PrimitiveType, State, Command, Comparable<DecimalType>, Convertible {
+@NonNullByDefault
+public class DecimalType extends Number implements PrimitiveType, State, Command, Comparable<DecimalType> {
 
     private static final long serialVersionUID = 4226845847123464690L;
 
-    final static public DecimalType ZERO = new DecimalType(0);
+    public static final DecimalType ZERO = new DecimalType(0);
 
     protected BigDecimal value;
 
@@ -45,7 +50,7 @@ public class DecimalType extends Number implements PrimitiveType, State, Command
     }
 
     public DecimalType(double value) {
-        this.value = new BigDecimal(value);
+        this.value = BigDecimal.valueOf(value);
     }
 
     public DecimalType(String value) {
@@ -97,7 +102,7 @@ public class DecimalType extends Number implements PrimitiveType, State, Command
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (this == obj) {
             return true;
         }
@@ -143,33 +148,37 @@ public class DecimalType extends Number implements PrimitiveType, State, Command
         return value.longValue();
     }
 
+    protected <T extends State> @Nullable T defaultConversion(@Nullable Class<T> target) {
+        return State.super.as(target);
+    }
+
     @Override
-    public State as(Class<? extends State> target) {
+    public <T extends State> @Nullable T as(@Nullable Class<T> target) {
         if (target == OnOffType.class) {
-            return equals(ZERO) ? OnOffType.OFF : OnOffType.ON;
+            return target.cast(equals(ZERO) ? OnOffType.OFF : OnOffType.ON);
         } else if (target == PercentType.class) {
-            return new PercentType(toBigDecimal().multiply(BigDecimal.valueOf(100)));
+            return target.cast(new PercentType(toBigDecimal().multiply(BigDecimal.valueOf(100))));
         } else if (target == UpDownType.class) {
             if (equals(ZERO)) {
-                return UpDownType.UP;
+                return target.cast(UpDownType.UP);
             } else if (toBigDecimal().compareTo(BigDecimal.valueOf(1)) == 0) {
-                return UpDownType.DOWN;
+                return target.cast(UpDownType.DOWN);
             } else {
-                return UnDefType.UNDEF;
+                return null;
             }
         } else if (target == OpenClosedType.class) {
             if (equals(ZERO)) {
-                return OpenClosedType.CLOSED;
+                return target.cast(OpenClosedType.CLOSED);
             } else if (toBigDecimal().compareTo(BigDecimal.valueOf(1)) == 0) {
-                return OpenClosedType.OPEN;
+                return target.cast(OpenClosedType.OPEN);
             } else {
-                return UnDefType.UNDEF;
+                return null;
             }
         } else if (target == HSBType.class) {
-            return new HSBType(DecimalType.ZERO, PercentType.ZERO,
-                    new PercentType(this.toBigDecimal().multiply(BigDecimal.valueOf(100))));
+            return target.cast(new HSBType(DecimalType.ZERO, PercentType.ZERO,
+                    new PercentType(this.toBigDecimal().multiply(BigDecimal.valueOf(100)))));
         } else {
-            return StateConverterUtil.defaultConversion(this, target);
+            return defaultConversion(target);
         }
     }
 

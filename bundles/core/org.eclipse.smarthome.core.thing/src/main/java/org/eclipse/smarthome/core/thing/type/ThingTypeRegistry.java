@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.type;
 
@@ -17,8 +22,10 @@ import org.eclipse.smarthome.core.thing.Channel;
 import org.eclipse.smarthome.core.thing.ChannelUID;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
 import org.eclipse.smarthome.core.thing.binding.ThingTypeProvider;
-
-import com.google.common.collect.Lists;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 
 /**
  * The {@link ThingTypeRegistry} tracks all {@link ThingType}s provided by registered {@link ThingTypeProvider}s.
@@ -26,15 +33,16 @@ import com.google.common.collect.Lists;
  * @author Oliver Libutzki - Initial contribution
  * @author Dennis Nobel - Added locale support
  */
+@Component(immediate = true, service = ThingTypeRegistry.class)
 public class ThingTypeRegistry {
 
-    private List<ThingTypeProvider> thingTypeProviders = new CopyOnWriteArrayList<>();
+    private final List<ThingTypeProvider> thingTypeProviders = new CopyOnWriteArrayList<>();
+    private ChannelTypeRegistry channelTypeRegistry;
 
     /**
      * Returns all thing types.
      *
-     * @param locale
-     *            locale (can be null)
+     * @param locale locale (can be null)
      * @return all thing types
      */
     public List<ThingType> getThingTypes(Locale locale) {
@@ -57,14 +65,12 @@ public class ThingTypeRegistry {
     /**
      * Returns thing types for a given binding id.
      *
-     * @param bindingId
-     *            binding id
-     * @param locale
-     *            locale (can be null)
+     * @param bindingId binding id
+     * @param locale locale (can be null)
      * @return thing types for given binding id
      */
     public List<ThingType> getThingTypes(String bindingId, Locale locale) {
-        List<ThingType> thingTypesForBinding = Lists.newArrayList();
+        List<ThingType> thingTypesForBinding = new ArrayList<>();
 
         for (ThingType thingType : getThingTypes()) {
             if (thingType.getBindingId().equals(bindingId)) {
@@ -78,8 +84,7 @@ public class ThingTypeRegistry {
     /**
      * Returns thing types for a given binding id.
      *
-     * @param bindingId
-     *            binding id
+     * @param bindingId binding id
      * @return thing types for given binding id
      */
     public List<ThingType> getThingTypes(String bindingId) {
@@ -89,10 +94,8 @@ public class ThingTypeRegistry {
     /**
      * Returns a thing type for a given thing type UID.
      *
-     * @param thingTypeUID
-     *            thing type UID
-     * @param locale
-     *            locale (can be null)
+     * @param thingTypeUID thing type UID
+     * @param locale locale (can be null)
      * @return thing type for given UID or null if no thing type with this UID
      *         was found
      */
@@ -110,8 +113,7 @@ public class ThingTypeRegistry {
     /**
      * Returns a thing type for a given thing type UID.
      *
-     * @param thingTypeUID
-     *            thing type UID
+     * @param thingTypeUID thing type UID
      * @return thing type for given UID or null if no thing type with this UID
      *         was found
      */
@@ -127,7 +129,6 @@ public class ThingTypeRegistry {
      * fetch the thing type first using
      * {@link ThingTypeRegistry#getThingType(ThingTypeUID)} and use
      * {@link ThingType#getChannelType(ChannelUID)} afterwards.
-     * </p>
      *
      * @param channel channel
      * @return channel type or null if no channel type was found
@@ -144,7 +145,6 @@ public class ThingTypeRegistry {
      * fetch the thing type first using
      * {@link ThingTypeRegistry#getThingType(ThingTypeUID)} and use
      * {@link ThingType#getChannelType(ChannelUID)} afterwards.
-     * </p>
      *
      * @param channel channel
      * @param locale locale (can be null)
@@ -153,11 +153,12 @@ public class ThingTypeRegistry {
     public ChannelType getChannelType(Channel channel, Locale locale) {
         ChannelTypeUID channelTypeUID = channel.getChannelTypeUID();
         if (channelTypeUID != null) {
-            return TypeResolver.resolve(channelTypeUID, locale);
+            return channelTypeRegistry.getChannelType(channelTypeUID, locale);
         }
         return null;
     }
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     protected void addThingTypeProvider(ThingTypeProvider thingTypeProvider) {
         if (thingTypeProvider != null) {
             this.thingTypeProviders.add(thingTypeProvider);
@@ -168,6 +169,15 @@ public class ThingTypeRegistry {
         if (thingTypeProvider != null) {
             this.thingTypeProviders.remove(thingTypeProvider);
         }
+    }
+
+    @Reference
+    protected void setChannelTypeRegistry(ChannelTypeRegistry channelTypeRegistry) {
+        this.channelTypeRegistry = channelTypeRegistry;
+    }
+
+    protected void unsetChannelTypeRegistry(ChannelTypeRegistry channelTypeRegistry) {
+        this.channelTypeRegistry = null;
     }
 
 }

@@ -1,12 +1,19 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.automation.type.Input;
 import org.eclipse.smarthome.automation.type.ModuleType;
 import org.eclipse.smarthome.automation.type.Output;
@@ -14,144 +21,61 @@ import org.eclipse.smarthome.config.core.ConfigDescriptionParameter;
 import org.eclipse.smarthome.config.core.Configuration;
 
 /**
- * Modules are building components of the {@link Rule}s. Each Module is
- * identified by id, which is unique in scope of the {@link Rule}. It also has a {@link ModuleType} which provides meta
- * data of the module. The meta data
- * defines {@link Input}s, {@link Output}s and {@link ConfigDescriptionParameter}s parameters of the {@link Module}.
+ * This interface represents automation {@code Modules} which are building components of the {@link Rule}s.
+ * <p>
+ * Each module is identified by id, which is unique in scope of the {@link Rule}.
+ * <p>
+ * Each module has a {@link ModuleType} which provides meta data of the module. The meta data defines {@link Input}s,
+ * {@link Output}s and {@link ConfigDescriptionParameter}s which are the building elements of the {@link Module}.
  * <br>
- * Setters of the module don't have immediate effect on the Rule. To apply the
- * changes, they should be set on the {@link Rule} and the Rule has to be
- * updated by RuleManager
+ * Setters of the module don't have immediate effect on the Rule. To apply the changes, the Module should be set on the
+ * {@link Rule} and the Rule has to be updated in {@link RuleRegistry} by invoking {@code update} method.
  *
  * @author Yordan Mihaylov - Initial Contribution
- *
+ * @author Kai Kreuzer - Initial Contribution
  */
-public abstract class Module {
+@NonNullByDefault
+public interface Module {
 
     /**
-     * Id of the Module. It is mandatory and unique identifier in scope of the {@link Rule}. The id of the
-     * {@link Module} is used to identify the module
-     * in the {@link Rule}.
-     */
-    protected String id;
-
-    /**
-     * The label is a short, user friendly name of the {@link Module} defined by
-     * this descriptor.
-     */
-    protected String label;
-
-    /**
-     * The description is a long, user friendly description of the {@link Module} defined by this descriptor.
-     */
-    protected String description;
-
-    /**
-     * Configuration values of the Module.
+     * Gets the {@link Module}'s unique identifier in the scope of the rule in which this module belongs. The identifier
+     * of the {@link Module} is used to identify it when other rule's module refers it as input.
      *
-     * @see {@link ConfigDescriptionParameter}.
+     * @return the {@link Module}'s unique identifier in the scope of the rule in which this module belongs.
      */
-    protected Configuration configuration;
-    /**
-     * Unique type id of this module.
-     */
-    protected String type;
+    String getId();
 
     /**
-     * Constructor of the module.
+     * Gets the module type unique identifier which is a reference to the corresponding {@link ModuleType} that
+     * describes this module. The {@link ModuleType} contains {@link Input}s, {@link Output}s and
+     * {@link ConfigDescriptionParameter}s of this module.
      *
-     * @param id the module id.
-     * @param typeUID unique id of the module type.
-     * @param configuration configuration values of the module.
+     * @return the {@link ModuleType} unique identifier.
      */
-    public Module(String id, String typeUID, Configuration configuration) {
-        this.id = id;
-        this.type = typeUID;
-        setConfiguration(configuration);
-    }
-
-    public Module() {
-    }
+    String getTypeUID();
 
     /**
-     * This method is used for getting the id of the {@link Module}. It is unique
-     * in scope of the {@link Rule}.
+     * Gets the label of the {@link Module}. The label is user understandable name of the Module.
      *
-     * @return module id
+     * @return the label of the module or {@code null} if not specified.
      */
-    public String getId() {
-        return id;
-    }
+    @Nullable
+    String getLabel();
 
     /**
-     * This method is used for getting the reference to {@link ModuleType} of this
-     * module. The {@link ModuleType} contains description, tags and meta info for
-     * this module.
+     * Gets the description of the {@link Module}. The description is a detailed, human understandable description of
+     * the Module.
      *
-     * @return unique id of the {@link ModuleType} of this {@link Module}.
+     * @return the detailed description of the module or {@code null} if not specified.
      */
-    public String getTypeUID() {
-        return type;
-    }
+    @Nullable
+    String getDescription();
 
     /**
-     * This method is used for getting the label of the Module. The label is a
-     * short, user friendly name of the Module.
+     * Gets the configuration values of the {@link Module}.
      *
-     * @return the label of the module or null.
+     * @return the current configuration values of the {@link Module}.
      */
-    public String getLabel() {
-        return label;
-    }
-
-    /**
-     * This method is used for setting the label of the Module.
-     *
-     * @param label of the module.
-     */
-    public void setLabel(String label) {
-        this.label = label;
-    }
-
-    /**
-     * This method is used for getting the description of the Module. The
-     * description is a long, user friendly description of the Module.
-     *
-     * @return the description of the module or null.
-     */
-    public String getDescription() {
-        return description;
-    }
-
-    /**
-     * This method is used for setting the description of the Module.
-     *
-     * @param description of the module.
-     */
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    /**
-     * This method is used for getting configuration values of the {@link Module}.
-     *
-     * @return current configuration values or null.
-     */
-    public Configuration getConfiguration() {
-        if (configuration == null) {
-            configuration = new Configuration();
-        }
-        return configuration;
-    }
-
-    /**
-     * This method is used for setting the configuration of the {@link Module}.
-     *
-     * @param configuration new configuration values.
-     */
-    public void setConfiguration(Configuration configuration) {
-        this.configuration = configuration;
-
-    }
+    Configuration getConfiguration();
 
 }

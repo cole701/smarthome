@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.xml.util;
 
@@ -32,11 +37,9 @@ public class NodeAttributes implements NodeName {
      * @param nodeName the name of the node this object belongs to (must neither be null, nor empty)
      * @param attributes the map of all attributes of the node this object belongs to
      *            by key-value pairs (could be null or empty)
-     *
      * @throws IllegalArgumentException if the name of the node is null or empty
      */
     public NodeAttributes(String nodeName, Map<String, String> attributes) throws IllegalArgumentException {
-
         if ((nodeName == null) || (nodeName.isEmpty())) {
             throw new IllegalArgumentException("The name of the node must neither be null nor empty!");
         }

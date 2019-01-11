@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.internal.core.provider;
 
@@ -59,7 +64,7 @@ public class AutomationResourceBundlesEventQueue<E> implements Runnable {
      */
     private boolean shared = false;
 
-    private AbstractResourceBundleProvider<E> provider;
+    private final AbstractResourceBundleProvider<E> provider;
 
     /**
      * This constructor is responsible for initializing a queue for bundles providing automation resources.
@@ -86,7 +91,7 @@ public class AutomationResourceBundlesEventQueue<E> implements Runnable {
     public void run() {
         boolean waitForEvents = true;
         while (true) {
-            List<BundleEvent> l_queue = null;
+            List<BundleEvent> lQueue = null;
             synchronized (this) {
                 if (closed) {
                     notifyAll();
@@ -106,17 +111,25 @@ public class AutomationResourceBundlesEventQueue<E> implements Runnable {
                     notifyAll();
                     return;
                 }
-                l_queue = queue;
+                lQueue = queue;
                 shared = true;
             }
-            Iterator<BundleEvent> events = l_queue.iterator();
+            Iterator<BundleEvent> events = lQueue.iterator();
             while (events.hasNext()) {
                 BundleEvent event = events.next();
                 try {
                     processBundleChanged(event);
+                    synchronized (this) {
+                        if (closed) {
+                            notifyAll();
+                            return;
+                        }
+                    }
                 } catch (Throwable t) {
-                    logger.warn("Processing bundle event {}, for automation resource bundle '{}' failed",
-                            event.getType(), event.getBundle().getSymbolicName(), t);
+                    if (!closed && !(t instanceof IllegalStateException)) {
+                        logger.warn("Processing bundle event {}, for automation resource bundle '{}' failed",
+                                event.getType(), event.getBundle().getSymbolicName(), t);
+                    }
                 }
             }
             synchronized (this) {

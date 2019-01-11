@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.wemo.handler;
 
@@ -12,7 +17,6 @@ import static org.eclipse.smarthome.binding.wemo.WemoBindingConstants.*;
 import java.io.StringReader;
 import java.math.BigDecimal;
 import java.net.URL;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
@@ -25,16 +29,12 @@ import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.smarthome.binding.wemo.internal.http.WemoHttpCall;
 import org.eclipse.smarthome.config.core.Configuration;
-import org.eclipse.smarthome.config.discovery.DiscoveryListener;
-import org.eclipse.smarthome.config.discovery.DiscoveryResult;
-import org.eclipse.smarthome.config.discovery.DiscoveryService;
 import org.eclipse.smarthome.core.library.types.OnOffType;
 import org.eclipse.smarthome.core.thing.ChannelUID;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingStatus;
+import org.eclipse.smarthome.core.thing.ThingStatusDetail;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
-import org.eclipse.smarthome.core.thing.ThingUID;
-import org.eclipse.smarthome.core.thing.binding.BaseThingHandler;
 import org.eclipse.smarthome.core.types.Command;
 import org.eclipse.smarthome.core.types.RefreshType;
 import org.eclipse.smarthome.core.types.State;
@@ -56,22 +56,22 @@ import org.xml.sax.InputSource;
  * @author Hans-Jörg Merk - Initial contribution
  */
 
-public class WemoMakerHandler extends BaseThingHandler implements UpnpIOParticipant, DiscoveryListener {
+public class WemoMakerHandler extends AbstractWemoHandler implements UpnpIOParticipant {
 
     private final Logger logger = LoggerFactory.getLogger(WemoMakerHandler.class);
 
-    public final static Set<ThingTypeUID> SUPPORTED_THING_TYPES = Collections.singleton(THING_TYPE_MAKER);
+    public static final Set<ThingTypeUID> SUPPORTED_THING_TYPES = Collections.singleton(THING_TYPE_MAKER);
 
     private UpnpIOService service;
 
     /**
      * The default refresh interval in Seconds.
      */
-    private int DEFAULT_REFRESH_INTERVAL = 15;
+    private final int DEFAULT_REFRESH_INTERVAL = 15;
 
     private ScheduledFuture<?> refreshJob;
 
-    private Runnable refreshRunnable = new Runnable() {
+    private final Runnable refreshRunnable = new Runnable() {
 
         @Override
         public void run() {
@@ -79,13 +79,15 @@ public class WemoMakerHandler extends BaseThingHandler implements UpnpIOParticip
                 updateWemoState();
             } catch (Exception e) {
                 logger.debug("Exception during poll : {}", e);
+                updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, e.getMessage());
             }
         }
     };
 
-    public WemoMakerHandler(Thing thing, UpnpIOService upnpIOService) {
-
+    public WemoMakerHandler(Thing thing, UpnpIOService upnpIOService, WemoHttpCall wemoHttpcaller) {
         super(thing);
+
+        this.wemoHttpCaller = wemoHttpcaller;
 
         logger.debug("Creating a WemoMakerHandler for thing '{}'", getThing().getUID());
 
@@ -94,41 +96,18 @@ public class WemoMakerHandler extends BaseThingHandler implements UpnpIOParticip
         } else {
             logger.debug("upnpIOService not set.");
         }
-
     }
 
     @Override
     public void initialize() {
-
         Configuration configuration = getConfig();
 
         if (configuration.get("udn") != null) {
             logger.debug("Initializing WemoMakerHandler for UDN '{}'", configuration.get("udn"));
             onUpdate();
-            super.initialize();
+            updateStatus(ThingStatus.ONLINE);
         } else {
             logger.debug("Cannot initalize WemoMakerHandler. UDN not set.");
-        }
-
-    }
-
-    @Override
-    public void thingDiscovered(DiscoveryService source, DiscoveryResult result) {
-        if (result.getThingUID().equals(this.getThing().getUID())) {
-            if (getThing().getConfiguration().get(UDN).equals(result.getProperties().get(UDN))) {
-                logger.trace("Discovered UDN '{}' for thing '{}'", result.getProperties().get(UDN),
-                        getThing().getUID());
-                updateStatus(ThingStatus.ONLINE);
-                onUpdate();
-            }
-        }
-    }
-
-    @Override
-    public void thingRemoved(DiscoveryService source, ThingUID thingUID) {
-        if (thingUID.equals(this.getThing().getUID())) {
-            logger.trace("Setting status for thing '{}' to OFFLINE", getThing().getUID());
-            updateStatus(ThingStatus.OFFLINE);
         }
     }
 
@@ -154,9 +133,7 @@ public class WemoMakerHandler extends BaseThingHandler implements UpnpIOParticip
             }
         } else if (channelUID.getId().equals(CHANNEL_RELAY)) {
             if (command instanceof OnOffType) {
-
                 try {
-
                     String binaryState = null;
 
                     if (command.equals(OnOffType.ON)) {
@@ -177,7 +154,7 @@ public class WemoMakerHandler extends BaseThingHandler implements UpnpIOParticip
 
                     if (wemoURL != null) {
                         @SuppressWarnings("unused")
-                        String wemoCallResponse = WemoHttpCall.executeCall(wemoURL, soapHeader, content);
+                        String wemoCallResponse = wemoHttpCaller.executeCall(wemoURL, soapHeader, content);
                     }
                 } catch (Exception e) {
                     logger.error("Failed to send command '{}' for device '{}' ", command, getThing().getUID(), e);
@@ -203,7 +180,7 @@ public class WemoMakerHandler extends BaseThingHandler implements UpnpIOParticip
                 if (refreshConfig != null) {
                     refreshInterval = ((BigDecimal) refreshConfig).intValue();
                 }
-                refreshJob = scheduler.scheduleAtFixedRate(refreshRunnable, 0, refreshInterval, TimeUnit.SECONDS);
+                refreshJob = scheduler.scheduleWithFixedDelay(refreshRunnable, 0, refreshInterval, TimeUnit.SECONDS);
             }
         }
     }
@@ -217,7 +194,6 @@ public class WemoMakerHandler extends BaseThingHandler implements UpnpIOParticip
      * The {@link updateWemoState} polls the actual state of a WeMo Maker.
      */
     protected void updateWemoState() {
-
         String action = "GetAttributes";
         String actionService = "deviceevent";
 
@@ -230,7 +206,7 @@ public class WemoMakerHandler extends BaseThingHandler implements UpnpIOParticip
         try {
             String wemoURL = getWemoURL(actionService);
             if (wemoURL != null) {
-                String wemoCallResponse = WemoHttpCall.executeCall(wemoURL, soapHeader, content);
+                String wemoCallResponse = wemoHttpCaller.executeCall(wemoURL, soapHeader, content);
                 if (wemoCallResponse != null) {
                     try {
                         String stringParser = StringUtils.substringBetween(wemoCallResponse, "<attributeList>",
@@ -259,12 +235,12 @@ public class WemoMakerHandler extends BaseThingHandler implements UpnpIOParticip
                             NodeList deviceIndex = element.getElementsByTagName("name");
                             Element line = (Element) deviceIndex.item(0);
                             String attributeName = getCharacterDataFromElement(line);
-                            logger.trace("attributeName: " + attributeName);
+                            logger.trace("attributeName: {}", attributeName);
 
                             NodeList deviceID = element.getElementsByTagName("value");
                             line = (Element) deviceID.item(0);
                             String attributeValue = getCharacterDataFromElement(line);
-                            logger.trace("attributeValue: " + attributeValue);
+                            logger.trace("attributeValue: {}", attributeValue);
 
                             switch (attributeName) {
                                 case "Switch":
@@ -317,12 +293,6 @@ public class WemoMakerHandler extends BaseThingHandler implements UpnpIOParticip
 
     @Override
     public void onStatusChanged(boolean status) {
-    }
-
-    @Override
-    public Collection<ThingUID> removeOlderResults(DiscoveryService source, long timestamp,
-            Collection<ThingTypeUID> thingTypeUIDs) {
-        return null;
     }
 
     @Override

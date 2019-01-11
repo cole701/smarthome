@@ -1,240 +1,90 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.io.transport.mqtt;
 
-import java.util.Dictionary;
-import java.util.Enumeration;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.commons.lang.StringUtils;
-import org.eclipse.smarthome.core.events.EventPublisher;
-import org.eclipse.smarthome.io.transport.mqtt.internal.MqttBrokerConnection;
-import org.osgi.service.cm.ConfigurationException;
-import org.osgi.service.cm.ManagedService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.smarthome.io.transport.mqtt.internal.MqttBrokerConnectionServiceInstance;
 
 /**
- * MQTT Service for creating new connections to MQTT brokers from the Smart Home configuration file and registering
- * message publishers and subscribers. This service is the main entry point for all bundles wanting to use the MQTT
- * transport.
+ * This service allows you to enumerate system-wide configured Mqtt broker connections. You do not need this service
+ * if you want to manage own/local Mqtt broker connections. If you add a broker connection, it will be
+ * available immediately for all MqttService users. A removed broker connection may still be in use by consuming
+ * services.
  *
- * @author Davy Vanherbergen
- * @author Markus Rathgeb - Synchronize access to broker connections
+ * Added/removed connections are not permanent. Use {@link MqttBrokerConnectionServiceInstance} to configure permanent
+ * connections.
+ *
+ * @author David Graeff - Initial contribution
  */
-public class MqttService implements ManagedService {
-
-    private final Logger logger = LoggerFactory.getLogger(MqttService.class);
-
-    private final Map<String, MqttBrokerConnection> brokerConnections = new ConcurrentHashMap<String, MqttBrokerConnection>();
-
-    private EventPublisher eventPublisher;
-
-    @Override
-    public void updated(Dictionary<String, ?> properties) throws ConfigurationException {
-
-        // load broker configurations from configuration file
-        if (properties == null || properties.isEmpty()) {
-            return;
-        }
-
-        Enumeration<String> keys = properties.keys();
-        while (keys.hasMoreElements()) {
-
-            String key = keys.nextElement();
-
-            if (key.equals("service.pid")) {
-                // ignore the only non-broker property..
-                continue;
-            }
-
-            String[] subkeys = key.split("\\.");
-            if (subkeys.length != 2) {
-                logger.debug("MQTT Broker property '{}' should have the format 'broker.propertykey'", key);
-                continue;
-            }
-
-            String value = (String) properties.get(key);
-            String name = subkeys[0].toLowerCase();
-            String property = subkeys[1];
-
-            if (StringUtils.isBlank(value)) {
-                logger.trace("Property is empty: {}", key);
-                continue;
-            } else {
-                logger.trace("Processing property: {} = {}", key, value);
-            }
-
-            final MqttBrokerConnection conn = getConnection(name);
-
-            if (property.equals("url")) {
-                conn.setUrl(value);
-            } else if (property.equals("user")) {
-                conn.setUser(value);
-            } else if (property.equals("pwd")) {
-                conn.setPassword(value);
-            } else if (property.equals("qos")) {
-                conn.setQos(Integer.parseInt(value));
-            } else if (property.equals("retain")) {
-                conn.setRetain(Boolean.parseBoolean(value));
-            } else if (property.equals("async")) {
-                conn.setAsync(Boolean.parseBoolean(value));
-            } else if (property.equals("clientId")) {
-                conn.setClientId(value);
-            } else if (property.equals("lwt")) {
-                MqttWillAndTestament will = MqttWillAndTestament.fromString(value);
-                logger.debug("Setting last will: {}", will);
-                conn.setLastWill(will);
-            } else if (property.equals("keepAlive")) {
-                conn.setKeepAliveInterval(Integer.parseInt(value));
-            } else {
-                logger.warn("Unrecognized property: {}", key);
-            }
-        }
-        logger.info("MQTT Service initialization completed.");
-
-        startAllBrokerConnections();
-    }
+@NonNullByDefault
+public interface MqttService {
 
     /**
-     * Start service.
+     * Add a listener to get notified of new/removed brokers.
+     *
+     * @param observer The observer
      */
-    public void activate() {
-        logger.debug("Starting MQTT Service...");
-    }
+    void addBrokersListener(MqttServiceObserver observer);
 
     /**
-     * Stop service.
+     * Remove a listener and don't get notified of new/removed brokers anymore.
+     *
+     * @param observer The observer
      */
-    public void deactivate() {
-        logger.debug("Stopping MQTT Service...");
-        stopAllBrokerConnections();
-        logger.debug("MQTT Service stopped.");
-    }
+    void removeBrokersListener(MqttServiceObserver observer);
 
-    private void startAllBrokerConnections() {
-        /*
-         * No need to synchronize the access to the broker connections.
-         * We don't add or remove entries only use the existing ones and the map is a concurrent one.
-         */
-        for (final MqttBrokerConnection conn : brokerConnections.values()) {
-            try {
-                conn.start();
-            } catch (final Exception e) {
-                conn.connectionLost(e);
-                logger.error("Error starting broker connection", e);
-            }
-        }
-    }
-
-    private void stopAllBrokerConnections() {
-        /*
-         * No need to synchronize the access to the broker connections.
-         * We don't add or remove entries only use the existing ones and the map is a concurrent one.
-         */
-        for (final MqttBrokerConnection conn : brokerConnections.values()) {
-            logger.info("Stopping broker connection '{}'", conn.getName());
-            conn.close();
-        }
-    }
+    /**
+     * Return true if a broker listener has been added via addBrokersListener().
+     */
+    boolean hasBrokerObservers();
 
     /**
      * Lookup an broker connection by name.
      *
      * @param brokerName to look for.
-     * @return existing connection or new one if it didn't exist yet.
+     * @return existing connection or null
      */
-    private MqttBrokerConnection getConnection(String brokerName) {
-        synchronized (brokerConnections) {
-            MqttBrokerConnection conn = brokerConnections.get(brokerName.toLowerCase());
-            if (conn == null) {
-                conn = new MqttBrokerConnection(brokerName);
-                brokerConnections.put(brokerName.toLowerCase(), conn);
-            }
-            return conn;
-        }
-    }
+    @Nullable
+    MqttBrokerConnection getBrokerConnection(String brokerName);
 
     /**
-     * Register a new connection observer that could act on MQTT connection changes.
+     * Adds a broker connection to the service.
+     * The broker connection state will not be altered (started/stopped).
      *
-     * @param brokerName Name of the broker that connection should be observed.
-     * @param connectionObserver The connection observer that should be informed about connection changes.
+     * It is your responsibility to remove the broker connection again by calling
+     * removeBrokerConnection(brokerID).
+     *
+     * @param brokerID The broker connection will be identified by this ID. The ID must be unique within the service.
+     * @param connection The broker connection object
+     * @return Return true if the connection could be added successfully, return false if there is already
+     *         an existing connection with the same name.
      */
-    public void registerConnectionObserver(String brokerName, MqttConnectionObserver connectionObserver) {
-        getConnection(brokerName).addConnectionObserver(connectionObserver);
-    }
+    boolean addBrokerConnection(String brokerID, MqttBrokerConnection connection);
 
     /**
-     * Unregister an existing connection observer.
+     * Remove a broker connection by name
      *
-     * @param brokerName Name of the broker that connection has been observed.
-     * @param connectionObserver The connection observer that should not be informed anymore.
+     * @param brokerName The broker ID
+     * @return Returns the removed broker connection, or null if there was none with the given name.
      */
-    public void unregisterConnectionObserver(String brokerName, MqttConnectionObserver connectionObserver) {
-        getConnection(brokerName).removeConnectionObserver(connectionObserver);
-    }
+    @Nullable
+    MqttBrokerConnection removeBrokerConnection(String brokerID);
 
     /**
-     * Register a new message consumer which can process messages received on
-     *
-     * @param brokerName Name of the broker on which to listen for messages.
-     * @param mqttMessageConsumer Consumer which will process any received message.
+     * Returns an unmodifiable map with all configured brokers of this service and the broker ID as keys.
      */
-    public void registerMessageConsumer(String brokerName, MqttMessageConsumer mqttMessageConsumer) {
-
-        mqttMessageConsumer.setEventPublisher(eventPublisher);
-        getConnection(brokerName).addConsumer(mqttMessageConsumer);
-    }
-
-    /**
-     * Unregisters an existing message.
-     *
-     * @param mqttMessageConsumer Consumer which needs to be unregistered.
-     */
-    public void unregisterMessageConsumer(String brokerName, MqttMessageConsumer mqttMessageConsumer) {
-
-        getConnection(brokerName).removeConsumer(mqttMessageConsumer);
-    }
-
-    public void registerMessageProducer(String brokerName, MqttMessageProducer commandPublisher) {
-
-        getConnection(brokerName).addProducer(commandPublisher);
-    }
-
-    /**
-     * Register a new message producer which can send messages to the given
-     * broker.
-     *
-     * @param brokerName Name of the broker to which messages can be sent.
-     * @param mqttMessageProducer Producer which generates the messages.
-     */
-    public void unregisterMessageProducer(String brokerName, MqttMessageProducer commandPublisher) {
-
-        getConnection(brokerName).removeProducer(commandPublisher);
-    }
-
-    /**
-     * Set the publisher to use for publishing SmartHome updates.
-     *
-     * @param eventPublisher EventPublisher
-     */
-    public void setEventPublisher(EventPublisher eventPublisher) {
-        this.eventPublisher = eventPublisher;
-    }
-
-    /**
-     * Remove the publisher to use for publishing SmartHome updates.
-     *
-     * @param eventPublisher EventPublisher
-     */
-    public void unsetEventPublisher(EventPublisher eventPublisher) {
-        this.eventPublisher = null;
-    }
+    Map<String, MqttBrokerConnection> getAllBrokerConnections();
 }

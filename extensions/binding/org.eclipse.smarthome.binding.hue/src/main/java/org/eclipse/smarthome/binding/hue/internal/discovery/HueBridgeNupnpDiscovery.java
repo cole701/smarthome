@@ -1,13 +1,19 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.hue.internal.discovery;
 
-import static org.eclipse.smarthome.binding.hue.HueBindingConstants.*;
+import static org.eclipse.smarthome.binding.hue.internal.HueBindingConstants.*;
+import static org.eclipse.smarthome.core.thing.Thing.PROPERTY_SERIAL_NUMBER;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -16,13 +22,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.smarthome.config.discovery.AbstractDiscoveryService;
 import org.eclipse.smarthome.config.discovery.DiscoveryResult;
 import org.eclipse.smarthome.config.discovery.DiscoveryResultBuilder;
+import org.eclipse.smarthome.config.discovery.DiscoveryService;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
 import org.eclipse.smarthome.core.thing.ThingUID;
 import org.eclipse.smarthome.io.net.http.HttpUtil;
+import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,21 +41,24 @@ import com.google.gson.JsonParseException;
 import com.google.gson.reflect.TypeToken;
 
 /**
- * The {@link HueBridgeNupnpDiscovery} is responsible for discovering new hue
- * bridges. It uses the 'NUPnP service provided by Philips'.
+ * The {@link HueBridgeNupnpDiscovery} is responsible for discovering new hue bridges. It uses the 'NUPnP service
+ * provided by Philips'.
  *
  * @author Awelkiyar Wehabrebi - Initial contribution
  * @author Christoph Knauf - Refactorings
+ * @author Andre Fuechsel - make {@link #startScan()} asynchronous
  */
+@NonNullByDefault
+@Component(service = DiscoveryService.class, immediate = true, configurationPid = "discovery.hue")
 public class HueBridgeNupnpDiscovery extends AbstractDiscoveryService {
 
     private static final String MODEL_NAME_PHILIPS_HUE = "<modelName>Philips hue";
 
-    private static final String BRIDGE_INDICATOR = "fffe";
+    protected static final String BRIDGE_INDICATOR = "fffe";
 
     private static final String DISCOVERY_URL = "https://www.meethue.com/api/nupnp";
 
-    private static final String LABEL_PATTERN = "Philips hue (IP)";
+    protected static final String LABEL_PATTERN = "Philips hue (IP)";
 
     private static final String DESC_URL_PATTERN = "http://HOST/description.xml";
 
@@ -63,7 +76,7 @@ public class HueBridgeNupnpDiscovery extends AbstractDiscoveryService {
 
     @Override
     protected void startScan() {
-        discoverHueBridges();
+        scheduler.schedule(this::discoverHueBridges, 0, TimeUnit.SECONDS);
     }
 
     /**
@@ -77,7 +90,8 @@ public class HueBridgeNupnpDiscovery extends AbstractDiscoveryService {
                 ThingUID uid = new ThingUID(THING_TYPE_BRIDGE, serialNumber);
                 DiscoveryResult result = DiscoveryResultBuilder.create(uid)
                         .withProperties(buildProperties(host, serialNumber))
-                        .withLabel(LABEL_PATTERN.replace("IP", host)).withRepresentationProperty(SERIAL_NUMBER).build();
+                        .withLabel(LABEL_PATTERN.replace("IP", host)).withRepresentationProperty(PROPERTY_SERIAL_NUMBER)
+                        .build();
                 thingDiscovered(result);
             }
         }
@@ -85,7 +99,7 @@ public class HueBridgeNupnpDiscovery extends AbstractDiscoveryService {
 
     /**
      * Builds the bridge properties.
-     * 
+     *
      * @param host the ip of the bridge
      * @param serialNumber the id of the bridge
      * @return the bridge properties
@@ -93,7 +107,7 @@ public class HueBridgeNupnpDiscovery extends AbstractDiscoveryService {
     private Map<String, Object> buildProperties(String host, String serialNumber) {
         Map<String, Object> properties = new HashMap<>(2);
         properties.put(HOST, host);
-        properties.put(SERIAL_NUMBER, serialNumber);
+        properties.put(PROPERTY_SERIAL_NUMBER, serialNumber);
         return properties;
     }
 
@@ -155,12 +169,12 @@ public class HueBridgeNupnpDiscovery extends AbstractDiscoveryService {
         } catch (JsonParseException je) {
             logger.debug("Invalid json respone from Hue NUPnP service. Can't discover bridges");
         }
-        return new ArrayList<BridgeJsonParameters>();
+        return new ArrayList<>();
     }
 
     /**
      * Introduced in order to enable testing.
-     * 
+     *
      * @param url the url
      * @return the http request result as String
      * @throws IOException if request failed

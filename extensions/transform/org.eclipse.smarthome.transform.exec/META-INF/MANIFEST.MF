@@ -1,14 +1,20 @@
 Manifest-Version: 1.0
-Bundle-Name: Eclipse SmartHome Exec Transformation Service
-Bundle-Vendor: Eclipse.org/SmartHome
-Bundle-Version: 0.9.0.qualifier
+Bundle-ClassPath: .
+Bundle-License: https://www.eclipse.org/legal/epl-2.0/
 Bundle-ManifestVersion: 2
-Bundle-License: http://www.eclipse.org/legal/epl-v10.html
-Import-Package: org.eclipse.smarthome.core.transform,
+Bundle-Name: Eclipse SmartHome Exec Transformation Service
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-SymbolicName: org.eclipse.smarthome.transform.exec
+Bundle-Vendor: Eclipse.org/SmartHome
+Bundle-Version: 0.11.0.qualifier
+Import-Package: 
+ org.eclipse.jdt.annotation;resolution:=optional,
+ org.eclipse.smarthome.config.core,
+ org.eclipse.smarthome.core.library.types,
+ org.eclipse.smarthome.core.thing.profiles,
+ org.eclipse.smarthome.core.transform,
+ org.eclipse.smarthome.core.types,
  org.eclipse.smarthome.io.net.exec,
  org.slf4j
-Bundle-SymbolicName: org.eclipse.smarthome.transform.exec
-Bundle-RequiredExecutionEnvironment: JavaSE-1.8
-Service-Component: OSGI-INF/execservice.xml
-Bundle-ClassPath: .
-
+Service-Component: OSGI-INF/*.xml
+Automatic-Module-Name: org.eclipse.smarthome.transform.exec

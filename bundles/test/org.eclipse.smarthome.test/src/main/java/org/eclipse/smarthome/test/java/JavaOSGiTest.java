@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2016 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.test.java;
 
@@ -11,17 +16,18 @@ import static org.hamcrest.CoreMatchers.*;
 import static org.junit.Assert.assertThat;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Dictionary;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.function.BooleanSupplier;
 import java.util.function.Predicate;
-import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
-import org.eclipse.smarthome.core.autoupdate.AutoUpdateBindingConfigProvider;
-import org.eclipse.smarthome.test.OSGiTest;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.smarthome.test.internal.java.MissingServiceAnalyzer;
 import org.eclipse.smarthome.test.storage.VolatileStorageService;
 import org.junit.After;
 import org.junit.Assert;
@@ -35,35 +41,33 @@ import org.osgi.framework.ServiceRegistration;
 
 /**
  * {@link JavaOSGiTest} is an abstract base class for OSGi based tests. It provides convenience methods to register and
- * unregister mocks as OSGi services. All services, which are registered through the {@link OSGiTest#registerService}
+ * unregister mocks as OSGi services. All services, which are registered through the
+ * {@link JavaOSGiTest#registerService}
  * methods, are unregistered automatically in the tear down of the test.
  *
- * @author Markus Rathgeb - Create a pure Java implementation based on the Groovy {@link OSGiTest} class
+ * @author Markus Rathgeb - Create a pure Java implementation based on the Groovy {@code OSGiTest} class
  */
-public class JavaOSGiTest {
+@NonNullByDefault
+public class JavaOSGiTest extends JavaTest {
 
-    protected final int DFL_TIMEOUT = 10000;
-    protected final int DFL_SLEEP_TIME = 50;
-
-    private final Map<String, ServiceRegistration<?>> registeredServices = new HashMap<>();
-    BundleContext bundleContext;
+    private final Map<String, List<ServiceRegistration<?>>> registeredServices = new HashMap<>();
+    protected @NonNullByDefault({}) BundleContext bundleContext;
 
     @Before
     public void bindBundleContext() {
-        bundleContext = getBundleContext();
+        bundleContext = initBundleContext();
         assertThat(bundleContext, is(notNullValue()));
     }
 
     /**
-     * Get the {@link BundleContext}, which is used for registration and unregistration of OSGi services.
+     * Initialize the {@link BundleContext}, which is used for registration and unregistration of OSGi services.
      *
      * <p>
-     * By default it uses the bundle context of the test class itself. This method can be overridden by concrete
-     * implementations to provide another bundle context.
+     * This uses the bundle context of the test class itself.
      *
      * @return bundle context
      */
-    private BundleContext getBundleContext() {
+    private @Nullable BundleContext initBundleContext() {
         final Bundle bundle = FrameworkUtil.getBundle(this.getClass());
         if (bundle != null) {
             return bundle.getBundleContext();
@@ -72,7 +76,7 @@ public class JavaOSGiTest {
         }
     }
 
-    private <T> T unrefService(final ServiceReference<T> serviceReference) {
+    private <T> @Nullable T unrefService(final @Nullable ServiceReference<T> serviceReference) {
         if (serviceReference == null) {
             return null;
         } else {
@@ -86,63 +90,122 @@ public class JavaOSGiTest {
      * @param clazz class under which the OSGi service is registered
      * @return OSGi service or null if no service can be found for the given class
      */
-    protected <T> T getService(Class<T> clazz) {
+    protected <T> @Nullable T getService(Class<T> clazz) {
         @SuppressWarnings("unchecked")
         final ServiceReference<T> serviceReference = (ServiceReference<T>) bundleContext
                 .getServiceReference(clazz.getName());
 
+        if (serviceReference == null) {
+            new MissingServiceAnalyzer(System.out, bundleContext).printMissingServiceDetails(clazz);
+            return null;
+        }
+
         return unrefService(serviceReference);
+    }
+
+    /**
+     * Get all OSGi service for the given class and the given filter.
+     *
+     * @param clazz class under which the OSGi service is registered
+     * @param filter Predicate to apply to found ServiceReferences
+     * @return List of OSGi services or empty List if no service can be found for the given class and filter
+     */
+    protected <T> List<T> getServices(Class<T> clazz, Predicate<ServiceReference<T>> filter) {
+        final ServiceReference<@Nullable T> serviceReferences[] = getServices(clazz);
+
+        if (serviceReferences == null) {
+            new MissingServiceAnalyzer(System.out, bundleContext).printMissingServiceDetails(clazz);
+            return Collections.emptyList();
+        }
+
+        return Arrays //
+                .stream(serviceReferences) //
+                .filter(filter) // apply the predicate
+                .map(this::unrefService) // get the actual services from the references
+                .collect(Collectors.toList()); // get the result as List
     }
 
     /**
      * Get an OSGi service for the given class and the given filter.
      *
      * @param clazz class under which the OSGi service is registered
-     * @param filter
+     * @param filter Predicate to apply to found ServiceReferences
      * @return OSGi service or null if no service can be found for the given class
+     * @throws AssertionError if more than one instance of the service is found
      */
-    protected <T> T getService(Class<T> clazz, Predicate<ServiceReference<T>> filter) {
-        final ServiceReference<T> serviceReferences[] = getServices(clazz);
+    protected <T> @Nullable T getService(Class<T> clazz, Predicate<ServiceReference<T>> filter) {
+        final List<T> filteredServices = getServices(clazz, filter);
 
-        final List<T> filteredServiceReferences = new ArrayList<>(serviceReferences.length);
-        for (final ServiceReference<T> serviceReference : serviceReferences) {
-            if (filter.test(serviceReference)) {
-                filteredServiceReferences.add(unrefService(serviceReference));
-            }
-        }
+        return getSingleServiceInstance(clazz, filteredServices);
+    }
 
-        if (filteredServiceReferences.size() > 1) {
+    /**
+     * Get the single instance of an OSGi service or throw an {@link AssertionError} if multiple instances were found.
+     *
+     * @param clazz under which the OSGi service is registered
+     * @param filteredServices List of found services
+     * @return OSGi service or null if no service was found for the given class
+     * @throws AssertionError if more than one instance of the service is found
+     */
+    private <T, I extends T> @Nullable I getSingleServiceInstance(Class<T> clazz, final List<I> filteredServices) {
+        if (filteredServices.size() > 1) {
             Assert.fail("More than 1 service matching the filter is registered.");
         }
-        if (filteredServiceReferences.isEmpty()) {
+        if (filteredServices.isEmpty()) {
+            new MissingServiceAnalyzer(System.out, bundleContext).printMissingServiceDetails(clazz);
             return null;
         } else {
-            return filteredServiceReferences.get(0);
+            return filteredServices.get(0);
         }
     }
 
-    private <T> ServiceReference<T>[] getServices(final Class<T> clazz) {
+    private <T> ServiceReference<T> @Nullable [] getServices(final Class<T> clazz) {
         try {
             @SuppressWarnings("unchecked")
             ServiceReference<T> serviceReferences[] = (ServiceReference<T>[]) bundleContext
                     .getServiceReferences(clazz.getName(), null);
             return serviceReferences;
         } catch (InvalidSyntaxException e) {
-            throw new Error("Invalid exception for a null filter");
+            throw new IllegalArgumentException("Invalid exception for a null filter");
         }
     }
 
     /**
-     * Get an OSGi service for the given class and the given filter.
+     * Get the OSGi service for the given service class and the given implementation class.
      *
      * @param clazz class under which the OSGi service is registered
-     * @param filter
-     * @return OSGi service or null if no service can be found for the given class
+     * @param implementationClass the implementation class
+     * @return OSGi service or null if no service can be found for the given classes
+     * @throws AssertionError if more than one instance of the service is found
      */
-    protected <T, I extends T> I getService(Class<T> clazz, Class<I> implementationClass) {
-        @SuppressWarnings("unchecked")
-        final I service = (I) getService(clazz, srvRef -> implementationClass.isInstance(unrefService(srvRef)));
-        return service;
+    protected <T, I extends T> @Nullable I getService(Class<T> clazz, Class<I> implementationClass) {
+        final List<I> services = getServices(clazz, implementationClass);
+
+        return getSingleServiceInstance(clazz, services);
+    }
+
+    /**
+     * Get all OSGi services for the given service class and the given implementation class.
+     *
+     * @param clazz class under which the OSGi services are registered
+     * @param implementationClass the implementation class of the services
+     * @return List of OSGi service or empty List if no matching services can be found for the given classes
+     */
+    protected <T, I extends T> List<I> getServices(Class<T> clazz, Class<I> implementationClass) {
+        final ServiceReference<@Nullable T> serviceReferences[] = getServices(clazz);
+
+        if (serviceReferences == null) {
+            new MissingServiceAnalyzer(System.out, bundleContext).printMissingServiceDetails(clazz);
+            return Collections.emptyList();
+        }
+
+        return Arrays //
+                .stream(serviceReferences) //
+                .map(this::unrefService) // get the actual services from the references
+                .filter(implementationClass::isInstance) // check that are of implementationClass
+                .map(implementationClass::cast) // cast instances to implementationClass
+                .collect(Collectors.toList()) // get the result as List
+        ;
     }
 
     /**
@@ -195,11 +258,20 @@ public class JavaOSGiTest {
      * @return service registration object
      */
     protected ServiceRegistration<?> registerService(final Object service, final String interfaceName,
-            final Dictionary<String, ?> properties) {
+            final @Nullable Dictionary<String, ?> properties) {
         assertThat(interfaceName, is(notNullValue()));
         final ServiceRegistration<?> srvReg = bundleContext.registerService(interfaceName, service, properties);
-        registeredServices.put(interfaceName, srvReg);
+        saveServiceRegistration(interfaceName, srvReg);
         return srvReg;
+    }
+
+    private void saveServiceRegistration(final String interfaceName, final ServiceRegistration<?> srvReg) {
+        List<ServiceRegistration<?>> regs = registeredServices.get(interfaceName);
+        if (regs == null) {
+            regs = new ArrayList<>();
+            registeredServices.put(interfaceName, regs);
+        }
+        regs.add(srvReg);
     }
 
     /**
@@ -220,7 +292,7 @@ public class JavaOSGiTest {
         final ServiceRegistration<?> srvReg = bundleContext.registerService(interfaceNames, service, properties);
 
         for (final String interfaceName : interfaceNames) {
-            registeredServices.put(interfaceName, srvReg);
+            saveServiceRegistration(interfaceName, srvReg);
         }
 
         return srvReg;
@@ -235,7 +307,7 @@ public class JavaOSGiTest {
      * @param service the service
      * @return the service registration that was unregistered or null if no service could be found
      */
-    protected ServiceRegistration<?> unregisterService(final Object service) {
+    protected @Nullable ServiceRegistration<?> unregisterService(final Object service) {
         return unregisterService(getInterfaceName(service));
     }
 
@@ -243,162 +315,32 @@ public class JavaOSGiTest {
      * Unregister an OSGi service by the given object, that was registered before.
      *
      * @param interfaceName the interface name of the service
-     * @return the service registration that was unregistered or null if no service could be found
+     * @return the first service registration that was unregistered or null if no service could be found
      */
-    protected ServiceRegistration<?> unregisterService(final String interfaceName) {
-        final ServiceRegistration<?> reg = registeredServices.remove(interfaceName);
-        if (reg != null) {
-            reg.unregister();
-            Iterator<ServiceRegistration<?>> regs = registeredServices.values().iterator();
-            while (regs.hasNext()) {
-                final ServiceRegistration<?> otherReg = regs.next();
-                if (otherReg == reg) {
-                    regs.remove();
-                }
-            }
+    protected @Nullable ServiceRegistration<?> unregisterService(final String interfaceName) {
+        ServiceRegistration<?> reg = null;
+        List<ServiceRegistration<?>> regList = registeredServices.remove(interfaceName);
+        if (regList != null) {
+            reg = regList.get(0);
+            regList.forEach(r -> r.unregister());
         }
         return reg;
-    }
-
-    /**
-     * Wait until the condition is fulfilled or the timeout is reached.
-     *
-     * <p>
-     * This method uses the default timing parameters.
-     *
-     * @param condition the condition to check
-     * @return true on success, false on timeout
-     */
-    protected boolean waitFor(BooleanSupplier condition) {
-        return waitFor(condition, DFL_TIMEOUT, DFL_SLEEP_TIME);
-    }
-
-    /**
-     * Wait until the condition is fulfilled or the timeout is reached.
-     *
-     * @param condition the condition to check
-     * @param timeout timeout
-     * @param sleepTime interval for checking the condition
-     * @return true on success, false on timeout
-     */
-    protected boolean waitFor(BooleanSupplier condition, int timeout, int sleepTime) {
-        int waitingTime = 0;
-        boolean rv;
-        while (!(rv = condition.getAsBoolean()) && waitingTime < timeout) {
-            waitingTime += sleepTime;
-            internalSleep(sleepTime);
-        }
-        return rv;
-    }
-
-    /**
-     * Wait until the assertion is fulfilled or the timeout is reached.
-     *
-     * <p>
-     * This method uses the default timing parameters.
-     *
-     * @param assertion closure that must not have an argument
-     */
-    protected void waitForAssert(Runnable assertion) {
-        waitForAssert(assertion, null, DFL_TIMEOUT, DFL_SLEEP_TIME);
-    }
-
-    /**
-     * Wait until the assertion is fulfilled or the timeout is reached.
-     *
-     * @param assertion the logic to execute
-     * @param timeout timeout
-     * @param sleepTime interval for checking the condition
-     */
-    protected void waitForAssert(Runnable assertion, int timeout, int sleepTime) {
-        waitForAssert(assertion, null, timeout, sleepTime);
-    }
-
-    /**
-     * Wait until the assertion is fulfilled or the timeout is reached.
-     *
-     * <p>
-     * This method uses the default timing parameters.
-     *
-     * @param assertion the logic to execute
-     * @return the return value of the supplied assertion object's function on success
-     */
-    protected <T> T waitForAssert(Supplier<T> assertion) {
-        return waitForAssert(assertion, null, DFL_TIMEOUT, DFL_SLEEP_TIME);
-    }
-
-    /**
-     * Wait until the assertion is fulfilled or the timeout is reached.
-     *
-     * @param assertion the logic to execute
-     * @param timeout timeout
-     * @param sleepTime interval for checking the condition
-     * @return the return value of the supplied assertion object's function on success
-     */
-    protected <T> T waitForAssert(Supplier<T> assertion, int timeout, int sleepTime) {
-        return waitForAssert(assertion, null, timeout, sleepTime);
-    }
-
-    /**
-     * Wait until the assertion is fulfilled or the timeout is reached.
-     *
-     * @param assertion the logic to execute
-     * @param beforeLastCall logic to execute in front of the last call to ${code assertion}
-     * @param sleepTime interval for checking the condition
-     */
-    protected void waitForAssert(Runnable assertion, Runnable beforeLastCall, int timeout, int sleepTime) {
-        int waitingTime = 0;
-        while (waitingTime < timeout) {
-            try {
-                assertion.run();
-                return;
-            } catch (final Error | NullPointerException error) {
-                waitingTime += sleepTime;
-                internalSleep(sleepTime);
-            }
-        }
-        if (beforeLastCall != null) {
-            beforeLastCall.run();
-        }
-        assertion.run();
-    }
-
-    /**
-     * Wait until the assertion is fulfilled or the timeout is reached.
-     *
-     * @param assertion the logic to execute
-     * @param beforeLastCall logic to execute in front of the last call to ${code assertion}
-     * @param sleepTime interval for checking the condition
-     * @return the return value of the supplied assertion object's function on success
-     */
-    protected <T> T waitForAssert(Supplier<T> assertion, Runnable beforeLastCall, int timeout, int sleepTime) {
-        int waitingTime = 0;
-        while (waitingTime < timeout) {
-            try {
-                return assertion.get();
-            } catch (final Error | NullPointerException error) {
-                waitingTime += sleepTime;
-                internalSleep(sleepTime);
-            }
-        }
-        if (beforeLastCall != null) {
-            beforeLastCall.run();
-        }
-        return assertion.get();
     }
 
     /**
      * Returns the interface name for a given service object by choosing the first interface.
      *
      * @param service service object
-     * @return name of the first interface or null if the object has no interfaces
+     * @return name of the first interface if interfaces are implemented
+     * @throws IllegalArgumentException if no interface is implemented
      */
     protected String getInterfaceName(final Object service) {
         Class<?>[] classes = service.getClass().getInterfaces();
         if (classes.length >= 1) {
             return classes[0].getName();
         } else {
-            return null;
+            throw new IllegalArgumentException(String
+                    .format("The given reference (class: %s) does not implement an interface.", service.getClass()));
         }
     }
 
@@ -411,42 +353,8 @@ public class JavaOSGiTest {
 
     @After
     public void unregisterMocks() {
-        registeredServices.forEach((interfaceName, service) -> service.unregister());
+        registeredServices.forEach((interfaceName, services) -> services.forEach(service -> service.unregister()));
         registeredServices.clear();
-    }
-
-    /**
-     * Inject a service to disable the auto-update feature.
-     */
-    protected void disableItemAutoUpdate() {
-        registerService(new AutoUpdateBindingConfigProvider() {
-
-            @Override
-            public Boolean autoUpdate(String itemName) {
-                return false;
-            }
-        });
-    }
-
-    /**
-     * Inject a service to enable the auto-update feature.
-     */
-    protected void enableItemAutoUpdate() {
-        registerService(new AutoUpdateBindingConfigProvider() {
-
-            @Override
-            public Boolean autoUpdate(String itemName) {
-                return true;
-            }
-        });
-    }
-
-    private void internalSleep(long millis) {
-        try {
-            Thread.sleep(millis);
-        } catch (InterruptedException e) {
-            throw new Error("We shouldn't be interrupted while testing");
-        }
     }
 
 }

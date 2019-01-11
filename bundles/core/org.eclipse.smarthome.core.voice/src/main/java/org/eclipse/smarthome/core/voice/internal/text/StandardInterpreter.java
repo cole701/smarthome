@@ -1,14 +1,21 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.voice.internal.text;
 
 import java.util.Locale;
 
+import org.eclipse.smarthome.core.events.EventPublisher;
+import org.eclipse.smarthome.core.items.ItemRegistry;
 import org.eclipse.smarthome.core.library.types.HSBType;
 import org.eclipse.smarthome.core.library.types.IncreaseDecreaseType;
 import org.eclipse.smarthome.core.library.types.NextPreviousType;
@@ -20,6 +27,9 @@ import org.eclipse.smarthome.core.library.types.UpDownType;
 import org.eclipse.smarthome.core.types.RefreshType;
 import org.eclipse.smarthome.core.voice.text.AbstractRuleBasedInterpreter;
 import org.eclipse.smarthome.core.voice.text.Expression;
+import org.eclipse.smarthome.core.voice.text.HumanLanguageInterpreter;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 
 /**
  * A human language command interpretation service.
@@ -29,11 +39,11 @@ import org.eclipse.smarthome.core.voice.text.Expression;
  * @author Laurent Garnier - Added French interpretation rules
  *
  */
+@Component(service = HumanLanguageInterpreter.class)
 public class StandardInterpreter extends AbstractRuleBasedInterpreter {
 
     @Override
     public void createRules() {
-
         /****************************** ENGLISH ******************************/
 
         Expression onOff = alt(cmd("on", OnOffType.ON), cmd("off", OnOffType.OFF));
@@ -57,8 +67,9 @@ public class StandardInterpreter extends AbstractRuleBasedInterpreter {
 
                 /* IncreaseDecreaseType */
 
-                itemRule(seq(cmd(alt("dim", "decrease", "lower", "soften"), IncreaseDecreaseType.DECREASE),
-                        the) /* item */),
+                itemRule(seq(cmd(alt("dim", "decrease", "lower", "soften"), IncreaseDecreaseType.DECREASE), the) /*
+                                                                                                                  * item
+                                                                                                                  */),
 
                 itemRule(seq(cmd(alt("brighten", "increase", "harden", "enhance"), IncreaseDecreaseType.INCREASE),
                         the) /* item */),
@@ -216,7 +227,6 @@ public class StandardInterpreter extends AbstractRuleBasedInterpreter {
                 itemRule(seq(cmd("rafraîchir", RefreshType.REFRESH), lela) /* item */)
 
         );
-
     }
 
     @Override
@@ -227,6 +237,28 @@ public class StandardInterpreter extends AbstractRuleBasedInterpreter {
     @Override
     public String getLabel(Locale locale) {
         return "Built-in Interpreter";
+    }
+
+    @Override
+    @Reference
+    public void setItemRegistry(ItemRegistry ItemRegistry) {
+        super.setItemRegistry(ItemRegistry);
+    }
+
+    @Override
+    public void unsetItemRegistry(ItemRegistry itemRegistry) {
+        super.unsetItemRegistry(itemRegistry);
+    }
+
+    @Override
+    @Reference
+    public void setEventPublisher(EventPublisher EventPublisher) {
+        super.setEventPublisher(EventPublisher);
+    }
+
+    @Override
+    public void unsetEventPublisher(EventPublisher eventPublisher) {
+        super.unsetEventPublisher(eventPublisher);
     }
 
 }

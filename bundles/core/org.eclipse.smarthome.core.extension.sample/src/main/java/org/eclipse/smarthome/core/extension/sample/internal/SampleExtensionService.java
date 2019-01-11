@@ -1,12 +1,18 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.extension.sample.internal;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +28,10 @@ import org.eclipse.smarthome.core.extension.Extension;
 import org.eclipse.smarthome.core.extension.ExtensionEventFactory;
 import org.eclipse.smarthome.core.extension.ExtensionService;
 import org.eclipse.smarthome.core.extension.ExtensionType;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
 
 /**
  * This is an implementation of an {@link ExtensionService} that can be used as a dummy service for testing the
@@ -31,6 +41,7 @@ import org.eclipse.smarthome.core.extension.ExtensionType;
  * @author Kai Kreuzer - Initial contribution and API
  *
  */
+@Component
 public class SampleExtensionService implements ExtensionService {
 
     private static final String LOREM_IPSUM = "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et justo duo dolores et ea rebum. Stet clita kasd gubergren, no sea takimata sanctus est Lorem ipsum dolor sit amet.";
@@ -42,6 +53,7 @@ public class SampleExtensionService implements ExtensionService {
     List<ExtensionType> types = new ArrayList<>(3);
     Map<String, Extension> extensions = new HashMap<>(30);
 
+    @Reference
     protected void setEventPublisher(EventPublisher eventPublisher) {
         this.eventPublisher = eventPublisher;
     }
@@ -50,6 +62,7 @@ public class SampleExtensionService implements ExtensionService {
         this.eventPublisher = null;
     }
 
+    @Activate
     protected void activate() {
         types.add(new ExtensionType("binding", "Bindings"));
         types.add(new ExtensionType("ui", "User Interfaces"));
@@ -74,21 +87,25 @@ public class SampleExtensionService implements ExtensionService {
         }
     }
 
-    private static final Random random = new Random();
+    private static final Random RANDOM = new Random();
 
     private String createRandomColor() {
         StringBuilder ret = new StringBuilder("#");
         for (int i = 0; i < 3; i++) {
-            ret.append(COLOR_VALUES[random.nextInt(COLOR_VALUES.length)]);
+            ret.append(COLOR_VALUES[RANDOM.nextInt(COLOR_VALUES.length)]);
         }
         return ret.toString();
     }
 
     private String createDescription() {
-        int index = StringUtils.indexOf(LOREM_IPSUM, ' ', random.nextInt(LOREM_IPSUM.length()));
+        int index = StringUtils.indexOf(LOREM_IPSUM, ' ', RANDOM.nextInt(LOREM_IPSUM.length()));
+        if (index < 0) {
+            index = LOREM_IPSUM.length();
+        }
         return LOREM_IPSUM.substring(0, index);
     }
 
+    @Deactivate
     protected void deactivate() {
         types.clear();
         extensions.clear();
@@ -131,6 +148,11 @@ public class SampleExtensionService implements ExtensionService {
         return types;
     }
 
+    @Override
+    public String getExtensionId(URI extensionURI) {
+        return null;
+    }
+
     private void postInstalledEvent(String extensionId) {
         if (eventPublisher != null) {
             Event event = ExtensionEventFactory.createExtensionInstalledEvent(extensionId);
@@ -144,4 +166,5 @@ public class SampleExtensionService implements ExtensionService {
             eventPublisher.post(event);
         }
     }
+
 }

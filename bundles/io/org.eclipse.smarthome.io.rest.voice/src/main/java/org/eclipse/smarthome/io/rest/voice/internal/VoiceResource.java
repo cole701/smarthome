@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.io.rest.voice.internal;
 
@@ -32,8 +37,12 @@ import org.eclipse.smarthome.core.voice.VoiceManager;
 import org.eclipse.smarthome.core.voice.text.HumanLanguageInterpreter;
 import org.eclipse.smarthome.core.voice.text.InterpretationException;
 import org.eclipse.smarthome.io.rest.JSONResponse;
-import org.eclipse.smarthome.io.rest.LocaleUtil;
-import org.eclipse.smarthome.io.rest.SatisfiableRESTResource;
+import org.eclipse.smarthome.io.rest.LocaleService;
+import org.eclipse.smarthome.io.rest.RESTResource;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -46,10 +55,11 @@ import io.swagger.annotations.ApiResponses;
  *
  * @author Kai Kreuzer - Initial contribution and API
  */
+@Component
 @Path(VoiceResource.PATH_SITEMAPS)
 @RolesAllowed({ Role.USER, Role.ADMIN })
 @Api(value = VoiceResource.PATH_SITEMAPS)
-public class VoiceResource implements SatisfiableRESTResource {
+public class VoiceResource implements RESTResource {
 
     static final String PATH_SITEMAPS = "voice";
 
@@ -57,13 +67,24 @@ public class VoiceResource implements SatisfiableRESTResource {
     UriInfo uriInfo;
 
     private VoiceManager voiceManager;
+    private LocaleService localeService;
 
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
     public void setVoiceManager(VoiceManager voiceManager) {
         this.voiceManager = voiceManager;
     }
 
     public void unsetVoiceManager(VoiceManager voiceManager) {
         this.voiceManager = null;
+    }
+
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
+    protected void setLocaleService(LocaleService localeService) {
+        this.localeService = localeService;
+    }
+
+    protected void unsetLocaleService(LocaleService localeService) {
+        this.localeService = null;
     }
 
     @GET
@@ -73,7 +94,7 @@ public class VoiceResource implements SatisfiableRESTResource {
     @ApiResponses(value = { @ApiResponse(code = 200, message = "OK") })
     public Response getInterpreters(
             @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) @ApiParam(value = "language") String language) {
-        final Locale locale = LocaleUtil.getLocale(language);
+        final Locale locale = localeService.getLocale(language);
         Collection<HumanLanguageInterpreter> hlis = voiceManager.getHLIs();
         List<HumanLanguageInterpreterDTO> dtos = new ArrayList<>(hlis.size());
         for (HumanLanguageInterpreter hli : hlis) {
@@ -91,7 +112,7 @@ public class VoiceResource implements SatisfiableRESTResource {
     public Response getInterpreter(
             @HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) @ApiParam(value = "language") String language,
             @PathParam("id") @ApiParam(value = "interpreter id", required = true) String id) {
-        final Locale locale = LocaleUtil.getLocale(language);
+        final Locale locale = localeService.getLocale(language);
         HumanLanguageInterpreter hli = voiceManager.getHLI(id);
         if (hli != null) {
             HumanLanguageInterpreterDTO dto = HLIMapper.map(hli, locale);
@@ -111,12 +132,12 @@ public class VoiceResource implements SatisfiableRESTResource {
     public Response interpret(@HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) @ApiParam(value = "language") String language,
             @ApiParam(value = "text to interpret", required = true) String text,
             @PathParam("id") @ApiParam(value = "interpreter id", required = true) String id) {
-        final Locale locale = LocaleUtil.getLocale(language);
+        final Locale locale = localeService.getLocale(language);
         HumanLanguageInterpreter hli = voiceManager.getHLI(id);
         if (hli != null) {
             try {
                 hli.interpret(locale, text);
-                return Response.ok().build();
+                return Response.ok(null, MediaType.TEXT_PLAIN).build();
             } catch (InterpretationException e) {
                 return JSONResponse.createErrorResponse(Status.BAD_REQUEST, e.getMessage());
             }
@@ -134,12 +155,12 @@ public class VoiceResource implements SatisfiableRESTResource {
             @ApiResponse(code = 400, message = "interpretation exception occurs") })
     public Response interpret(@HeaderParam(HttpHeaders.ACCEPT_LANGUAGE) @ApiParam(value = "language") String language,
             @ApiParam(value = "text to interpret", required = true) String text) {
-        final Locale locale = LocaleUtil.getLocale(language);
+        final Locale locale = localeService.getLocale(language);
         HumanLanguageInterpreter hli = voiceManager.getHLI();
         if (hli != null) {
             try {
                 hli.interpret(locale, text);
-                return Response.ok().build();
+                return Response.ok(null, MediaType.TEXT_PLAIN).build();
             } catch (InterpretationException e) {
                 return JSONResponse.createErrorResponse(Status.BAD_REQUEST, e.getMessage());
             }
@@ -150,6 +171,6 @@ public class VoiceResource implements SatisfiableRESTResource {
 
     @Override
     public boolean isSatisfied() {
-        return voiceManager != null;
+        return voiceManager != null && localeService != null;
     }
 }

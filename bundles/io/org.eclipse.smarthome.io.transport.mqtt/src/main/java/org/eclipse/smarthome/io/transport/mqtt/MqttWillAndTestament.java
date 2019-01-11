@@ -1,13 +1,22 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.io.transport.mqtt;
 
+import java.nio.charset.StandardCharsets;
+
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 
 /**
  * Class encapsulating the last will and testament that is published after the client has gone offline.
@@ -15,11 +24,15 @@ import org.apache.commons.lang.StringUtils;
  * @author Markus Mann
  *
  */
+@NonNullByDefault
 public class MqttWillAndTestament {
-    private String topic;
-    private byte[] payload;
-    private int qos = 0;
-    private boolean retain = false;
+    private static final int DFL_QOS = 0;
+    private static final boolean DFL_RETAIN = false;
+
+    private final String topic;
+    private final byte @Nullable [] payload;
+    private final int qos;
+    private final boolean retain;
 
     /**
      * Create an instance of the last will using a string with the following format:<br/>
@@ -35,33 +48,83 @@ public class MqttWillAndTestament {
      * @param string the string to parse. If null, null is returned
      * @return the will instance, will be null only if parameter is null
      */
-    public static MqttWillAndTestament fromString(String string) {
-        if (string == null) {
-            return null;
-        }
-        MqttWillAndTestament result = new MqttWillAndTestament();
-        String[] components = string.split(":");
-        for (int i = 0; i < Math.min(components.length, 4); i++) {
-            String value = StringUtils.trimToEmpty(components[i]);
-            switch (i) {
-                case 0:
-                    result.setTopic(value);
-                    break;
-                case 1:
-                    result.setPayload(value.getBytes());
-                    break;
-                case 2:
-                    if (!"".equals(value)) {
-                        result.setQos(Integer.valueOf(value));
-                    }
-                    break;
-                case 3:
-                    result.setRetain(Boolean.valueOf(value));
-                    break;
+    public static @Nullable MqttWillAndTestament fromString(@Nullable String string) {
+        return fromString(string, null, null, null, null);
+    }
+
+    public static @Nullable MqttWillAndTestament fromString(@Nullable String string, @Nullable String topic,
+            byte @Nullable [] payload, @Nullable Integer qos, @Nullable Boolean retain) {
+        String tmpTopic = null;
+        byte[] tmpPayload = null;
+        int tmpQos = DFL_QOS;
+        boolean tmpRetain = DFL_RETAIN;
+
+        // Parse string if given.
+        if (string != null) {
+            String[] components = string.split(":");
+            for (int i = 0; i < Math.min(components.length, 4); i++) {
+                String value = StringUtils.trimToEmpty(components[i]);
+                switch (i) {
+                    case 0:
+                        tmpTopic = value;
+                        break;
+                    case 1:
+                        tmpPayload = value.getBytes(StandardCharsets.UTF_8);
+                        break;
+                    case 2:
+                        if (!"".equals(value)) {
+                            int tmp = Integer.valueOf(value);
+                            if (tmp >= 0 && tmp <= 2) {
+                                tmpQos = tmp;
+                            }
+                        }
+                        break;
+                    case 3:
+                        tmpRetain = Boolean.valueOf(value);
+                        break;
+                }
             }
         }
-        return result;
 
+        // Use explicit given values.
+        if (topic != null) {
+            tmpTopic = topic;
+        }
+        if (payload != null) {
+            tmpPayload = payload;
+        }
+        if (qos != null) {
+            tmpQos = qos;
+        }
+        if (retain != null) {
+            tmpRetain = retain;
+        }
+
+        // Check if valid
+        if (tmpTopic == null || tmpTopic.isEmpty()) {
+            return null;
+        }
+
+        // Create MQTT Last Will and Testament object
+        return new MqttWillAndTestament(tmpTopic, tmpPayload, tmpQos, tmpRetain);
+    }
+
+    /**
+     * Create a new {@link} MqttWillAndTestament with at least a topic name.
+     *
+     * @param topic topic is a normal topic string (no placeholders are allowed)
+     * @param payload The optional payload. Can be null.
+     * @param qos Valid values are 0 (Deliver at most once),1 (Deliver at least once) or 2</li>
+     * @param retain true if messages shall be retained
+     */
+    public MqttWillAndTestament(String topic, byte @Nullable [] payload, int qos, boolean retain) {
+        if (StringUtils.isBlank(topic)) {
+            throw new IllegalArgumentException("Topic must be set");
+        }
+        this.topic = topic;
+        this.payload = payload;
+        this.qos = qos;
+        this.retain = retain;
     }
 
     /**
@@ -72,28 +135,10 @@ public class MqttWillAndTestament {
     }
 
     /**
-     * Set the topic for the last will.
-     *
-     * @param topic the topic
-     */
-    public void setTopic(String topic) {
-        this.topic = topic;
-    }
-
-    /**
      * @return the payload of the last will.
      */
-    public byte[] getPayload() {
+    public byte @Nullable [] getPayload() {
         return payload;
-    }
-
-    /**
-     * Set the payload of the last will.
-     *
-     * @param payload the payload
-     */
-    public void setPayload(byte[] payload) {
-        this.payload = payload;
     }
 
     /**
@@ -104,35 +149,12 @@ public class MqttWillAndTestament {
     }
 
     /**
-     * Set quality of service. Valid values are 0,1,2
-     *
-     * @param qos level.
-     */
-    public void setQos(int qos) {
-        if (qos >= 0 && qos <= 2) {
-            this.qos = qos;
-        }
-    }
-
-    /**
      * @return true if the last will should be retained by the broker.
      */
     public boolean isRetain() {
         return retain;
     }
 
-    /**
-     * Set whether the last will should be retained by the broker.
-     *
-     * @param retain true to retain.
-     */
-    public void setRetain(boolean retain) {
-        this.retain = retain;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();

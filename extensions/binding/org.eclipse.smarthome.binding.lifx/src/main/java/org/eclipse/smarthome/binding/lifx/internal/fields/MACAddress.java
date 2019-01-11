@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.lifx.internal.fields;
 
@@ -15,9 +20,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 
-import javax.xml.bind.DatatypeConverter;
-
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,12 +30,15 @@ import org.slf4j.LoggerFactory;
  * @author Tim Buckley
  * @author Karel Goderis
  */
+@NonNullByDefault
 public class MACAddress {
 
-    private Logger logger = LoggerFactory.getLogger(MACAddress.class);
+    public static final MACAddress BROADCAST_ADDRESS = new MACAddress("000000000000", true);
+
+    private final Logger logger = LoggerFactory.getLogger(MACAddress.class);
 
     private ByteBuffer bytes;
-    private String hex;
+    private String hex = "";
 
     public ByteBuffer getBytes() {
         return bytes;
@@ -51,14 +59,23 @@ public class MACAddress {
             this.bytes = ByteBuffer.wrap(string.getBytes());
             createHex();
         } else {
-            this.bytes = ByteBuffer.wrap(DatatypeConverter.parseHexBinary(string));
+            this.bytes = ByteBuffer.wrap(parseHexBinary(string));
 
             try {
                 formatHex(string, 2, ":");
             } catch (IOException e) {
-                logger.error("An exception occured while formatting an HEX string : '{}'", e.getMessage());
+                logger.error("An exception occurred while formatting an HEX string : '{}'", e.getMessage());
             }
         }
+    }
+
+    private byte[] parseHexBinary(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4) + Character.digit(s.charAt(i + 1), 16));
+        }
+        return data;
     }
 
     public MACAddress() {
@@ -104,7 +121,6 @@ public class MACAddress {
         }
 
         hex = StringUtils.left(result, result.length() - 1);
-
     }
 
     @Override
@@ -115,7 +131,7 @@ public class MACAddress {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (obj == null) {
             return false;
         }

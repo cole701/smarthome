@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.io.rest.sitemap.internal;
 
@@ -48,9 +53,13 @@ public class SitemapEventOutput extends EventOutput {
             if (sitemapName != null && sitemapName.equals(subscriptions.getSitemapName(subscriptionId))
                     && pageId != null && pageId.equals(subscriptions.getPageId(subscriptionId))) {
                 super.write(chunk);
-                if (logger.isDebugEnabled() && event instanceof SitemapWidgetEvent) {
-                    logger.debug("Sent sitemap event for widget {} to subscription {}.",
-                            ((SitemapWidgetEvent) event).widgetId, subscriptionId);
+                if (logger.isDebugEnabled()) {
+                    if (event instanceof SitemapWidgetEvent) {
+                        logger.debug("Sent sitemap event for widget {} to subscription {}.",
+                                ((SitemapWidgetEvent) event).widgetId, subscriptionId);
+                    } else if (event instanceof ServerAliveEvent) {
+                        logger.debug("Sent alive event to subscription {}.", subscriptionId);
+                    }
                 }
             }
         }

@@ -1,17 +1,23 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.module.timer.handler;
 
 import java.text.ParseException;
 
+import org.eclipse.smarthome.automation.ModuleHandlerCallback;
 import org.eclipse.smarthome.automation.Trigger;
 import org.eclipse.smarthome.automation.handler.BaseTriggerModuleHandler;
-import org.eclipse.smarthome.automation.handler.RuleEngineCallback;
+import org.eclipse.smarthome.automation.handler.TriggerHandlerCallback;
 import org.eclipse.smarthome.automation.module.timer.factory.TimerModuleHandlerFactory;
 import org.eclipse.smarthome.core.scheduler.CronExpression;
 import org.eclipse.smarthome.core.scheduler.Expression;
@@ -56,8 +62,8 @@ public class GenericCronTriggerHandler extends BaseTriggerModuleHandler implemen
     }
 
     @Override
-    public synchronized void setRuleEngineCallback(RuleEngineCallback ruleCallback) {
-        super.setRuleEngineCallback(ruleCallback);
+    public synchronized void setCallback(ModuleHandlerCallback callback) {
+        super.setCallback(callback);
         scheduleJob();
     }
 
@@ -80,6 +86,6 @@ public class GenericCronTriggerHandler extends BaseTriggerModuleHandler implemen
 
     @Override
     public void run() {
-        ruleEngineCallback.triggered(module, null);
+        ((TriggerHandlerCallback) callback).triggered(module, null);
     }
 }

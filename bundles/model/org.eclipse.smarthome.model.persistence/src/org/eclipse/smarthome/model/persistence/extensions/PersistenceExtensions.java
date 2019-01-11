@@ -1,19 +1,26 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.model.persistence.extensions;
 
 import java.math.BigDecimal;
 import java.math.MathContext;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.Date;
 import java.util.Iterator;
 
+import org.eclipse.smarthome.core.i18n.TimeZoneProvider;
 import org.eclipse.smarthome.core.items.Item;
 import org.eclipse.smarthome.core.library.types.DecimalType;
 import org.eclipse.smarthome.core.persistence.FilterCriteria;
@@ -25,6 +32,8 @@ import org.eclipse.smarthome.core.persistence.QueryablePersistenceService;
 import org.eclipse.smarthome.core.types.State;
 import org.joda.time.DateTime;
 import org.joda.time.base.AbstractInstant;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 import org.slf4j.LoggerFactory;
 
 /**
@@ -39,20 +48,32 @@ import org.slf4j.LoggerFactory;
  * @author John Cocula
  *
  */
+@Component(immediate = true)
 public class PersistenceExtensions {
 
     private static PersistenceServiceRegistry registry;
+    private static TimeZoneProvider timeZoneProvider;
 
     public PersistenceExtensions() {
         // default constructor, necessary for osgi-ds
     }
 
+    @Reference
     protected void setPersistenceServiceRegistry(PersistenceServiceRegistry registry) {
         PersistenceExtensions.registry = registry;
     }
 
     protected void unsetPersistenceServiceRegistry(PersistenceServiceRegistry registry) {
         PersistenceExtensions.registry = null;
+    }
+
+    @Reference
+    protected void setTimeZoneProvider(TimeZoneProvider timeZoneProvider) {
+        PersistenceExtensions.timeZoneProvider = timeZoneProvider;
+    }
+
+    protected void unsetTimeZoneProvider(TimeZoneProvider timeZoneProvider) {
+        PersistenceExtensions.timeZoneProvider = null;
     }
 
     private static PersistenceService getService(String serviceId) {
@@ -139,7 +160,7 @@ public class PersistenceExtensions {
         if (service instanceof QueryablePersistenceService) {
             QueryablePersistenceService qService = (QueryablePersistenceService) service;
             FilterCriteria filter = new FilterCriteria();
-            filter.setEndDate(timestamp.toDate());
+            filter.setEndDate(ZonedDateTime.ofInstant(timestamp.toDate().toInstant(), timeZoneProvider.getTimeZone()));
             filter.setItemName(item.getName());
             filter.setPageSize(1);
             filter.setOrdering(Ordering.DESCENDING);
@@ -267,7 +288,7 @@ public class PersistenceExtensions {
         Iterable<HistoricItem> result = getAllStatesSince(item, timestamp, serviceId);
         Iterator<HistoricItem> it = result.iterator();
         HistoricItem maximumHistoricItem = null;
-        DecimalType maximum = (DecimalType) item.getStateAs(DecimalType.class);
+        DecimalType maximum = item.getStateAs(DecimalType.class);
         while (it.hasNext()) {
             HistoricItem historicItem = it.next();
             State state = historicItem.getState();
@@ -334,7 +355,7 @@ public class PersistenceExtensions {
         Iterable<HistoricItem> result = getAllStatesSince(item, timestamp, serviceId);
         Iterator<HistoricItem> it = result.iterator();
         HistoricItem minimumHistoricItem = null;
-        DecimalType minimum = (DecimalType) item.getStateAs(DecimalType.class);
+        DecimalType minimum = item.getStateAs(DecimalType.class);
         while (it.hasNext()) {
             HistoricItem historicItem = it.next();
             State state = historicItem.getState();
@@ -429,12 +450,14 @@ public class PersistenceExtensions {
         }
 
         if (lastState != null) {
-            thisState = (DecimalType) item.getStateAs(DecimalType.class);
-            thisTimestamp = BigDecimal.valueOf((new DateTime()).getMillis());
-            avgValue = (thisState.toBigDecimal().add(lastState.toBigDecimal())).divide(BigDecimal.valueOf(2),
-                    MathContext.DECIMAL64);
-            timeSpan = thisTimestamp.subtract(lastTimestamp);
-            total = total.add(avgValue.multiply(timeSpan, MathContext.DECIMAL64));
+            thisState = item.getStateAs(DecimalType.class);
+            if (thisState != null) {
+                thisTimestamp = BigDecimal.valueOf((new DateTime()).getMillis());
+                avgValue = (thisState.toBigDecimal().add(lastState.toBigDecimal())).divide(BigDecimal.valueOf(2),
+                        MathContext.DECIMAL64);
+                timeSpan = thisTimestamp.subtract(lastTimestamp);
+                total = total.add(avgValue.multiply(timeSpan, MathContext.DECIMAL64));
+            }
         }
 
         if (thisTimestamp != null) {
@@ -492,7 +515,8 @@ public class PersistenceExtensions {
         if (service instanceof QueryablePersistenceService) {
             QueryablePersistenceService qService = (QueryablePersistenceService) service;
             FilterCriteria filter = new FilterCriteria();
-            filter.setBeginDate(timestamp.toDate());
+            filter.setBeginDate(
+                    ZonedDateTime.ofInstant(timestamp.toDate().toInstant(), timeZoneProvider.getTimeZone()));
             filter.setItemName(item.getName());
             filter.setOrdering(Ordering.ASCENDING);
             return qService.query(filter);
@@ -576,7 +600,7 @@ public class PersistenceExtensions {
         HistoricItem itemThen = historicState(item, timestamp, serviceId);
         if (itemThen != null) {
             DecimalType valueThen = (DecimalType) itemThen.getState();
-            DecimalType valueNow = (DecimalType) item.getStateAs(DecimalType.class);
+            DecimalType valueNow = item.getStateAs(DecimalType.class);
 
             if ((valueThen != null) && (valueNow != null)) {
                 return new DecimalType(valueNow.toBigDecimal().subtract(valueThen.toBigDecimal()));
@@ -620,7 +644,7 @@ public class PersistenceExtensions {
         HistoricItem itemThen = historicState(item, timestamp, serviceId);
         if (itemThen != null) {
             DecimalType valueThen = (DecimalType) itemThen.getState();
-            DecimalType valueNow = (DecimalType) item.getStateAs(DecimalType.class);
+            DecimalType valueNow = item.getStateAs(DecimalType.class);
 
             if ((valueThen != null) && (valueThen.toBigDecimal().compareTo(BigDecimal.ZERO) != 0)
                     && (valueNow != null)) {

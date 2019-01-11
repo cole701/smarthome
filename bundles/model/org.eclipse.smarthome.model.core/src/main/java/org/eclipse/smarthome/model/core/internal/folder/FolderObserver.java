@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.model.core.internal.folder;
 
@@ -16,34 +21,33 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.WatchEvent;
 import java.nio.file.WatchEvent.Kind;
-import java.nio.file.WatchKey;
-import java.nio.file.WatchService;
 import java.util.Dictionary;
 import java.util.Enumeration;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
-import org.apache.commons.collections.CollectionUtils;
 import org.apache.commons.collections.MapUtils;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.smarthome.config.core.ConfigConstants;
-import org.eclipse.smarthome.core.service.AbstractWatchQueueReader;
 import org.eclipse.smarthome.core.service.AbstractWatchService;
 import org.eclipse.smarthome.model.core.ModelParser;
 import org.eclipse.smarthome.model.core.ModelRepository;
-import org.osgi.service.cm.ConfigurationException;
-import org.osgi.service.cm.ManagedService;
-import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Lists;
+import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.ConfigurationPolicy;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 
 /**
  * This class is able to observe multiple folders for changes and notifies the
@@ -51,9 +55,15 @@ import com.google.common.collect.Lists;
  *
  * @author Kai Kreuzer - Initial contribution and API
  * @author Fabio Marini - Refactoring to use WatchService
+ * @author Ana Dimova - reduce to a single watch thread for all class instances
  *
  */
-public class FolderObserver extends AbstractWatchService implements ManagedService {
+@Component(name = "org.eclipse.smarthome.folder", immediate = true, configurationPolicy = ConfigurationPolicy.REQUIRE)
+public class FolderObserver extends AbstractWatchService {
+
+    public FolderObserver() {
+        super(ConfigConstants.getConfigFolder());
+    }
 
     /* the model repository is provided as a service */
     private ModelRepository modelRepo = null;
@@ -62,11 +72,13 @@ public class FolderObserver extends AbstractWatchService implements ManagedServi
     private final Map<String, String[]> folderFileExtMap = new ConcurrentHashMap<String, String[]>();
 
     /* set of file extensions for which we have parsers already registered */
-    private static Set<String> parsers = new HashSet<>();
+    private final Set<String> parsers = new HashSet<>();
 
     /* set of files that have been ignored due to a missing parser */
-    private static Set<File> ignoredFiles = new HashSet<>();
+    private final Set<File> ignoredFiles = new HashSet<>();
+    private final Map<String, File> nameFileMap = new HashMap<>();
 
+    @Reference
     public void setModelRepository(ModelRepository modelRepo) {
         this.modelRepo = modelRepo;
     }
@@ -75,38 +87,69 @@ public class FolderObserver extends AbstractWatchService implements ManagedServi
         this.modelRepo = null;
     }
 
+    @Reference(cardinality = ReferenceCardinality.AT_LEAST_ONE, policy = ReferencePolicy.DYNAMIC)
     protected void addModelParser(ModelParser modelParser) {
         parsers.add(modelParser.getExtension());
+
+        // if the component isn't activated yet, ignoredFiles will be empty and thus this method does nothing
         processIgnoredFiles(modelParser.getExtension());
     }
 
     protected void removeModelParser(ModelParser modelParser) {
         parsers.remove(modelParser.getExtension());
+
+        Set<String> removed = modelRepo.removeAllModelsOfType(modelParser.getExtension());
+        ignoredFiles.addAll(removed.stream().map(name -> nameFileMap.get(name)).collect(Collectors.toSet()));
+    }
+
+    @Activate
+    public void activate(ComponentContext ctx) {
+        Dictionary<String, Object> config = ctx.getProperties();
+
+        Enumeration<String> keys = config.keys();
+        while (keys.hasMoreElements()) {
+            String foldername = keys.nextElement();
+            if (!StringUtils.isAlphanumeric(foldername)) {
+                // we allow only simple alphanumeric names for model folders - everything else might be other service
+                // properties
+                continue;
+            }
+
+            String[] fileExts = ((String) config.get(foldername)).split(",");
+
+            File folder = getFile(foldername);
+            if (folder.exists() && folder.isDirectory()) {
+                folderFileExtMap.put(foldername, fileExts);
+            } else {
+                logger.warn("Directory '{}' does not exist in '{}'. Please check your configuration settings!",
+                        foldername, ConfigConstants.getConfigFolder());
+            }
+        }
+
+        addModelsToRepo();
+
+        super.activate();
     }
 
     @Override
-    public void activate() {
+    @Deactivate
+    public void deactivate() {
+        super.deactivate();
+        deleteModelsFromRepo();
+        this.ignoredFiles.clear();
+        this.folderFileExtMap.clear();
+        this.parsers.clear();
+        this.nameFileMap.clear();
     }
 
     private void processIgnoredFiles(String extension) {
-        HashSet<File> clonedSet = new HashSet<>(ignoredFiles);
+        HashSet<File> clonedSet = new HashSet<>(this.ignoredFiles);
         for (File file : clonedSet) {
             if (extension.equals(getExtension(file.getPath()))) {
                 checkFile(modelRepo, file, ENTRY_CREATE);
-                ignoredFiles.remove(file);
+                this.ignoredFiles.remove(file);
             }
         }
-    }
-
-    @Override
-    protected AbstractWatchQueueReader buildWatchQueueReader(WatchService watchService, Path toWatch,
-            Map<WatchKey, Path> registeredKeys) {
-        return new WatchQueueReader(watchService, toWatch, registeredKeys, folderFileExtMap, modelRepo);
-    }
-
-    @Override
-    protected String getSourcePath() {
-        return ConfigConstants.getConfigFolder();
     }
 
     @Override
@@ -115,88 +158,33 @@ public class FolderObserver extends AbstractWatchService implements ManagedServi
     }
 
     @Override
-    protected WatchKey registerDirectory(Path subDir) throws IOException {
-        if (subDir != null && MapUtils.isNotEmpty(folderFileExtMap)) {
-            String folderName = subDir.getFileName().toString();
-            if (folderFileExtMap.containsKey(folderName)) {
-                return subDir.register(watchService, ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY);
+    protected Kind<?>[] getWatchEventKinds(Path directory) {
+        if (directory != null && MapUtils.isNotEmpty(folderFileExtMap)) {
+            String folderName = directory.getFileName().toString();
+            if (this.folderFileExtMap.containsKey(folderName)) {
+                return new Kind<?>[] { ENTRY_CREATE, ENTRY_DELETE, ENTRY_MODIFY };
             }
         }
         return null;
     }
 
-    private static class WatchQueueReader extends AbstractWatchQueueReader {
-
-        private Map<String, String[]> folderFileExtMap = new ConcurrentHashMap<String, String[]>();
-
-        private ModelRepository modelRepo = null;
-
-        public WatchQueueReader(WatchService watchService, Path dirToWatch, Map<WatchKey, Path> registeredKeys,
-                Map<String, String[]> folderFileExtMap, ModelRepository modelRepo) {
-            super(watchService, dirToWatch, registeredKeys);
-
-            this.folderFileExtMap = folderFileExtMap;
-            this.modelRepo = modelRepo;
-        }
-
-        @Override
-        protected void processWatchEvent(WatchEvent<?> event, Kind<?> kind, Path path) {
-            File toCheck = getFileByFileExtMap(folderFileExtMap, path.getFileName().toString());
-            if (toCheck != null) {
-                checkFile(modelRepo, toCheck, kind);
-            }
-        }
-    }
-
-    @Override
-    @SuppressWarnings("rawtypes")
-    public synchronized void updated(Dictionary config) throws ConfigurationException {
-        if (config != null) {
-            // necessary to check removed models
-            Map<String, String[]> previousFolderFileExtMap = new ConcurrentHashMap<String, String[]>(folderFileExtMap);
-
-            // make sure to clear the caches first
-            folderFileExtMap.clear();
-
-            Enumeration keys = config.keys();
-            while (keys.hasMoreElements()) {
-
-                String foldername = (String) keys.nextElement();
-                if (foldername.equals("service.pid")) {
-                    continue;
-                }
-
-                String[] fileExts = ((String) config.get(foldername)).split(",");
-
-                File folder = getFile(foldername);
-                if (folder.exists() && folder.isDirectory()) {
-                    folderFileExtMap.put(foldername, fileExts);
-                } else {
-                    logger.warn("Directory '{}' does not exist in '{}'. Please check your configuration settings!",
-                            foldername, ConfigConstants.getConfigFolder());
-                }
-            }
-
-            notifyUpdateToModelRepo(previousFolderFileExtMap);
-            initializeWatchService();
-        }
-    }
-
-    private void notifyUpdateToModelRepo(Map<String, String[]> previousFolderFileExtMap) {
-        checkDeletedModels(previousFolderFileExtMap);
-        if (MapUtils.isNotEmpty(folderFileExtMap)) {
-            Iterator<String> iterator = folderFileExtMap.keySet().iterator();
+    private void addModelsToRepo() {
+        if (MapUtils.isNotEmpty(this.folderFileExtMap)) {
+            Iterator<String> iterator = this.folderFileExtMap.keySet().iterator();
             while (iterator.hasNext()) {
                 String folderName = iterator.next();
 
-                final String[] validExtension = folderFileExtMap.get(folderName);
+                final String[] validExtension = this.folderFileExtMap.get(folderName);
                 if (validExtension != null && validExtension.length > 0) {
                     File folder = getFile(folderName);
 
                     File[] files = folder.listFiles(new FileExtensionsFilter(validExtension));
                     if (files != null && files.length > 0) {
                         for (File file : files) {
-                            checkFile(modelRepo, file, ENTRY_CREATE);
+                            // we omit parsing of hidden files possibly created by editors or operating systems
+                            if (!file.isHidden()) {
+                                checkFile(modelRepo, file, ENTRY_CREATE);
+                            }
                         }
                     }
                 }
@@ -204,36 +192,14 @@ public class FolderObserver extends AbstractWatchService implements ManagedServi
         }
     }
 
-    private void checkDeletedModels(Map<String, String[]> previousFolderFileExtMap) {
-        if (MapUtils.isNotEmpty(previousFolderFileExtMap)) {
-            List<String> modelsToRemove = new LinkedList<String>();
-            if (MapUtils.isNotEmpty(folderFileExtMap)) {
-                Set<String> folders = previousFolderFileExtMap.keySet();
-                for (String folder : folders) {
-                    if (!folderFileExtMap.containsKey(folder)) {
-                        Iterable<String> models = modelRepo.getAllModelNamesOfType(folder);
-                        if (models != null) {
-                            modelsToRemove.addAll(Lists.newLinkedList(models));
-                        }
-                    }
-                }
-            } else {
-                Set<String> folders = previousFolderFileExtMap.keySet();
-                for (String folder : folders) {
-                    synchronized (FolderObserver.class) {
-                        Iterable<String> models = modelRepo.getAllModelNamesOfType(folder);
-                        if (models != null) {
-                            modelsToRemove.addAll(Lists.newLinkedList(models));
-                        }
-                    }
-                }
-            }
-
-            if (CollectionUtils.isNotEmpty(modelsToRemove)) {
-                for (String modelToRemove : modelsToRemove) {
-                    synchronized (FolderObserver.class) {
-                        modelRepo.removeModel(modelToRemove);
-                    }
+    private void deleteModelsFromRepo() {
+        Set<String> folders = this.folderFileExtMap.keySet();
+        for (String folder : folders) {
+            Iterable<String> models = modelRepo.getAllModelNamesOfType(folder);
+            if (models != null) {
+                for (String model : models) {
+                    logger.debug("Removing file {} from the model repo.", model);
+                    modelRepo.removeModel(model);
                 }
             }
         }
@@ -241,7 +207,7 @@ public class FolderObserver extends AbstractWatchService implements ManagedServi
 
     protected class FileExtensionsFilter implements FilenameFilter {
 
-        private String[] validExtensions;
+        private final String[] validExtensions;
 
         public FileExtensionsFilter(String[] validExtensions) {
             this.validExtensions = validExtensions;
@@ -262,34 +228,35 @@ public class FolderObserver extends AbstractWatchService implements ManagedServi
     }
 
     @SuppressWarnings("rawtypes")
-    private static void checkFile(final ModelRepository modelRepo, final File file, final Kind kind) {
+    private void checkFile(final ModelRepository modelRepo, final File file, final Kind kind) {
         if (modelRepo != null && file != null) {
             try {
                 synchronized (FolderObserver.class) {
                     if ((kind == ENTRY_CREATE || kind == ENTRY_MODIFY)) {
                         if (parsers.contains(getExtension(file.getName()))) {
                             try (FileInputStream inputStream = FileUtils.openInputStream(file)) {
+                                nameFileMap.put(file.getName(), file);
                                 modelRepo.addOrRefreshModel(file.getName(), inputStream);
+                            } catch (IOException e) {
+                                logger.warn("Error while opening file during update: {}", file.getAbsolutePath());
                             }
                         } else {
                             ignoredFiles.add(file);
                         }
                     } else if (kind == ENTRY_DELETE) {
                         modelRepo.removeModel(file.getName());
+                        nameFileMap.remove(file.getName());
                     }
                 }
             } catch (Exception e) {
-                LoggerFactory.getLogger(FolderObserver.class).error("Error handling update of file '{}': {}.",
-                        file.getAbsolutePath(), e.getMessage(), e);
+                logger.error("Error handling update of file '{}': {}.", file.getAbsolutePath(), e.getMessage(), e);
             }
         }
     }
 
-    private static File getFileByFileExtMap(Map<String, String[]> folderFileExtMap, String filename) {
+    private File getFileByFileExtMap(Map<String, String[]> folderFileExtMap, String filename) {
         if (StringUtils.isNotBlank(filename) && MapUtils.isNotEmpty(folderFileExtMap)) {
-
             String extension = getExtension(filename);
-
             if (StringUtils.isNotBlank(extension)) {
                 Set<Entry<String, String[]>> entries = folderFileExtMap.entrySet();
                 Iterator<Entry<String, String[]>> iterator = entries.iterator();
@@ -314,10 +281,8 @@ public class FolderObserver extends AbstractWatchService implements ManagedServi
      *            the file name to get the {@link File} for
      * @return the corresponding {@link File}
      */
-    private static File getFile(String filename) {
-        File folder = new File(ConfigConstants.getConfigFolder() + File.separator + filename);
-
-        return folder;
+    private File getFile(String filename) {
+        return new File(ConfigConstants.getConfigFolder() + File.separator + filename);
     }
 
     /**
@@ -327,9 +292,15 @@ public class FolderObserver extends AbstractWatchService implements ManagedServi
      *            the file name to get the extension
      * @return the file's extension
      */
-    public static String getExtension(String filename) {
-        String fileExt = filename.substring(filename.lastIndexOf(".") + 1);
+    public String getExtension(String filename) {
+        return filename.substring(filename.lastIndexOf(".") + 1);
+    }
 
-        return fileExt;
+    @Override
+    protected void processWatchEvent(WatchEvent<?> event, Kind<?> kind, Path path) {
+        File toCheck = getFileByFileExtMap(folderFileExtMap, path.getFileName().toString());
+        if (toCheck != null && !toCheck.isHidden()) {
+            checkFile(modelRepo, toCheck, kind);
+        }
     }
 }

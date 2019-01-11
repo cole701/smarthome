@@ -1,31 +1,41 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.ui.basic.internal.servlet;
 
 import java.io.IOException;
-import java.util.Hashtable;
 
 import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
 
 import org.eclipse.smarthome.core.events.EventPublisher;
 import org.eclipse.smarthome.core.items.GroupItem;
 import org.eclipse.smarthome.core.items.Item;
 import org.eclipse.smarthome.core.items.ItemNotFoundException;
+import org.eclipse.smarthome.core.items.ItemRegistry;
 import org.eclipse.smarthome.core.items.events.ItemEventFactory;
 import org.eclipse.smarthome.core.library.items.SwitchItem;
 import org.eclipse.smarthome.core.library.types.OnOffType;
 import org.eclipse.smarthome.core.types.Command;
 import org.eclipse.smarthome.core.types.TypeParser;
-import org.osgi.service.http.NamespaceException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.eclipse.smarthome.io.http.HttpContextFactoryService;
+import org.osgi.framework.BundleContext;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferencePolicy;
+import org.osgi.service.http.HttpService;
 
 /**
  * This servlet receives events from the web app and sends these as
@@ -35,14 +45,16 @@ import org.slf4j.LoggerFactory;
  * @author Stefan Bußweiler - Migration to new ESH event concept
  *
  */
+@Component(immediate = true, service = {})
 public class CmdServlet extends BaseServlet {
 
-    private final Logger logger = LoggerFactory.getLogger(CmdServlet.class);
+    private static final long serialVersionUID = 4813813926991230571L;
 
     public static final String SERVLET_NAME = "CMD";
 
     private EventPublisher eventPublisher;
 
+    @Reference(policy = ReferencePolicy.DYNAMIC)
     public void setEventPublisher(EventPublisher eventPublisher) {
         this.eventPublisher = eventPublisher;
     }
@@ -51,29 +63,18 @@ public class CmdServlet extends BaseServlet {
         this.eventPublisher = null;
     }
 
-    protected void activate() {
-        try {
-            logger.debug("Starting up CMD servlet at " + WEBAPP_ALIAS + "/" + SERVLET_NAME);
-
-            Hashtable<String, String> props = new Hashtable<String, String>();
-            httpService.registerServlet(WEBAPP_ALIAS + "/" + SERVLET_NAME, this, props, createHttpContext());
-
-        } catch (NamespaceException e) {
-            logger.error("Error during servlet startup", e);
-        } catch (ServletException e) {
-            logger.error("Error during servlet startup", e);
-        }
+    @Activate
+    protected void activate(BundleContext bundleContext) {
+        super.activate(WEBAPP_ALIAS + "/" + SERVLET_NAME, bundleContext);
     }
 
+    @Deactivate
     protected void deactivate() {
         httpService.unregister(WEBAPP_ALIAS + "/" + SERVLET_NAME);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public void service(ServletRequest req, ServletResponse res) throws ServletException, IOException {
+    protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
         for (Object key : req.getParameterMap().keySet()) {
             String itemName = key.toString();
 
@@ -101,6 +102,39 @@ public class CmdServlet extends BaseServlet {
                 }
             }
         }
+    }
+
+    @Override
+    @Reference
+    public void setItemRegistry(ItemRegistry ItemRegistry) {
+        super.setItemRegistry(ItemRegistry);
+    }
+
+    @Override
+    public void unsetItemRegistry(ItemRegistry ItemRegistry) {
+        super.unsetItemRegistry(ItemRegistry);
+    }
+
+    @Override
+    @Reference
+    public void setHttpService(HttpService HttpService) {
+        super.setHttpService(HttpService);
+    }
+
+    @Override
+    public void unsetHttpService(HttpService HttpService) {
+        super.unsetHttpService(HttpService);
+    }
+
+    @Override
+    @Reference
+    public void setHttpContextFactoryService(HttpContextFactoryService HttpContextFactoryService) {
+        super.setHttpContextFactoryService(HttpContextFactoryService);
+    }
+
+    @Override
+    public void unsetHttpContextFactoryService(HttpContextFactoryService HttpContextFactoryService) {
+        super.unsetHttpContextFactoryService(HttpContextFactoryService);
     }
 
 }

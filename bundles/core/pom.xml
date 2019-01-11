@@ -1,24 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
 
+  <modelVersion>4.0.0</modelVersion>
+
   <parent>
     <groupId>org.eclipse.smarthome</groupId>
     <artifactId>bundles</artifactId>
-    <version>0.9.0-SNAPSHOT</version>
+    <version>0.11.0-SNAPSHOT</version>
   </parent>
-
-  <modelVersion>4.0.0</modelVersion>
   <groupId>org.eclipse.smarthome.bundles</groupId>
   <artifactId>core</artifactId>
 
-  <name>Eclipse SmartHome Core Components</name>
-
   <packaging>pom</packaging>
+
+  <name>Eclipse SmartHome Core Components</name>
 
   <modules>
     <module>org.eclipse.smarthome.core</module>
     <module>org.eclipse.smarthome.core.audio</module>
-    <module>org.eclipse.smarthome.core.autoupdate</module>
+    <module>org.eclipse.smarthome.core.audio.test</module>
     <module>org.eclipse.smarthome.core.extension.sample</module>
     <module>org.eclipse.smarthome.core.id</module>
     <module>org.eclipse.smarthome.core.id.test</module>
@@ -27,7 +27,10 @@
     <module>org.eclipse.smarthome.core.thing.test</module>
     <module>org.eclipse.smarthome.core.persistence</module>
     <module>org.eclipse.smarthome.core.scheduler</module>
+    <module>org.eclipse.smarthome.core.semantics</module>
+    <!--<module>org.eclipse.smarthome.core.semantics.test</module>-->
     <module>org.eclipse.smarthome.core.transform</module>
+    <module>org.eclipse.smarthome.core.transform.test</module>
     <module>org.eclipse.smarthome.core.binding.xml</module>
     <module>org.eclipse.smarthome.core.binding.xml.test</module>
     <module>org.eclipse.smarthome.core.thing.xml</module>

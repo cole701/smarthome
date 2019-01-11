@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.model.script.jvmmodel;
 
@@ -18,6 +23,10 @@ import org.eclipse.smarthome.core.items.ItemRegistry;
 import org.eclipse.smarthome.core.items.ItemRegistryChangeListener;
 import org.eclipse.smarthome.model.core.ModelRepository;
 import org.eclipse.smarthome.model.script.engine.action.ActionService;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +37,7 @@ import org.slf4j.LoggerFactory;
  * @author Kai Kreuzer - added delayed execution
  *
  */
+@Component(service = ScriptItemRefresher.class, immediate = true)
 public class ScriptItemRefresher implements ItemRegistryChangeListener {
 
     private final Logger logger = LoggerFactory.getLogger(ScriptItemRefresher.class);
@@ -37,17 +47,22 @@ public class ScriptItemRefresher implements ItemRegistryChangeListener {
 
     ModelRepository modelRepository;
     private ItemRegistry itemRegistry;
-    private ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+    private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
     private ScheduledFuture<?> job;
 
+    @Reference
     public void setModelRepository(ModelRepository modelRepository) {
         this.modelRepository = modelRepository;
     }
 
     public void unsetModelRepository(ModelRepository modelRepository) {
+        if (job != null && !job.isDone()) {
+            job.cancel(false);
+        }
         this.modelRepository = null;
     }
 
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
     public void setItemRegistry(ItemRegistry itemRegistry) {
         this.itemRegistry = itemRegistry;
         this.itemRegistry.addRegistryChangeListener(this);
@@ -58,6 +73,7 @@ public class ScriptItemRefresher implements ItemRegistryChangeListener {
         this.itemRegistry = null;
     }
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     protected void addActionService(ActionService actionService) {
         scheduleScriptRefresh();
     }

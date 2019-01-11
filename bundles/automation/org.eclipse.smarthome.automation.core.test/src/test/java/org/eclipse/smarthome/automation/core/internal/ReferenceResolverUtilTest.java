@@ -1,13 +1,26 @@
+/**
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
+ */
 package org.eclipse.smarthome.automation.core.internal;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-import org.eclipse.smarthome.automation.Action;
-import org.eclipse.smarthome.automation.Condition;
 import org.eclipse.smarthome.automation.Module;
-import org.eclipse.smarthome.automation.Trigger;
+import org.eclipse.smarthome.automation.core.util.ModuleBuilder;
+import org.eclipse.smarthome.automation.core.util.ReferenceResolver;
 import org.eclipse.smarthome.config.core.Configuration;
 import org.junit.Assert;
 import org.junit.Test;
@@ -20,11 +33,13 @@ public class ReferenceResolverUtilTest {
     private static final String CONTEXT_PROPERTY3 = "contextProperty3";
     private static final String CONTEXT_PROPERTY4 = "contextProperty4";
 
-    private static final Map<String, Object> context = new HashMap<String, Object>();
-    private static final Map<String, Object> moduleConfiguration = new HashMap<String, Object>();
-    private static final Map<String, Object> expectedModuleConfiguration = new HashMap<String, Object>();
-    private static final Map<String, String> compositeChildModuleInputsReferences = new HashMap<String, String>();
-    private static final Map<String, Object> expectedCompositeChildModuleContext = new HashMap<String, Object>();
+    private static final Map<String, Object> context = new HashMap<>();
+    private static final Map<String, Object> moduleConfiguration = new HashMap<>();
+    private static final Map<String, Object> expectedModuleConfiguration = new HashMap<>();
+    private static final Map<String, String> compositeChildModuleInputsReferences = new HashMap<>();
+    private static final Map<String, Object> expectedCompositeChildModuleContext = new HashMap<>();
+
+    private final Logger logger = LoggerFactory.getLogger(getClass());
 
     static {
         // context from where references will be taken
@@ -77,75 +92,182 @@ public class ReferenceResolverUtilTest {
 
     @Test
     public void testModuleConfigurationResolving() {
-        // test trigger configuration..
-        Module trigger = new Trigger(null, null, new Configuration(moduleConfiguration));
-        ReferenceResolverUtil.updateModuleConfiguration(trigger, context);
+        // test trigger configuration.
+        Module trigger = ModuleBuilder.createTrigger().withId("id1").withTypeUID("typeUID1")
+                .withConfiguration(new Configuration(moduleConfiguration)).build();
+        ReferenceResolver.updateConfiguration(trigger.getConfiguration(), context, logger);
         Assert.assertEquals(trigger.getConfiguration(), new Configuration(expectedModuleConfiguration));
-        // test condition configuration..
-        Module condition = new Condition(null, null, new Configuration(moduleConfiguration), null);
-        ReferenceResolverUtil.updateModuleConfiguration(condition, context);
+        // test condition configuration.
+        Module condition = ModuleBuilder.createCondition().withId("id2").withTypeUID("typeUID2")
+                .withConfiguration(new Configuration(moduleConfiguration)).build();
+        ReferenceResolver.updateConfiguration(condition.getConfiguration(), context, logger);
         Assert.assertEquals(condition.getConfiguration(), new Configuration(expectedModuleConfiguration));
-        // test action configuration..
-        Module action = new Action(null, null, new Configuration(moduleConfiguration), null);
-        ReferenceResolverUtil.updateModuleConfiguration(action, context);
+        // test action configuration.
+        Module action = ModuleBuilder.createAction().withId("id3").withTypeUID("typeUID3")
+                .withConfiguration(new Configuration(moduleConfiguration)).build();
+        ReferenceResolver.updateConfiguration(action.getConfiguration(), context, logger);
         Assert.assertEquals(action.getConfiguration(), new Configuration(expectedModuleConfiguration));
     }
 
     @Test
     public void testModuleInputResolving() {
-        // test Composite child Module(condition) context
-        Module condition = new Condition(null, null, null, compositeChildModuleInputsReferences);
-        Map<String, Object> conditionContext = ReferenceResolverUtil.getCompositeChildContext(condition, context);
+        // test Composite child ModuleImpl(condition) context
+        Module condition = ModuleBuilder.createCondition().withId("id1").withTypeUID("typeUID1")
+                .withInputs(compositeChildModuleInputsReferences).build();
+        Map<String, Object> conditionContext = ReferenceResolver.getCompositeChildContext(condition, context);
         Assert.assertEquals(conditionContext, expectedCompositeChildModuleContext);
-        // test Composite child Module(action) context
-        Module action = new Action(null, null, null, compositeChildModuleInputsReferences);
-        Map<String, Object> actionContext = ReferenceResolverUtil.getCompositeChildContext(action, context);
+        // test Composite child ModuleImpl(action) context
+        Module action = ModuleBuilder.createAction().withId("id2").withTypeUID("typeUID2")
+                .withInputs(compositeChildModuleInputsReferences).build();
+        Assert.assertEquals(expectedCompositeChildModuleContext, conditionContext);
+        Map<String, Object> actionContext = ReferenceResolver.getCompositeChildContext(action, context);
         Assert.assertEquals(actionContext, expectedCompositeChildModuleContext);
     }
 
     @Test
-    public void testBeanMapAccess() {
-        Map map = new HashMap();
-        Map map1 = new HashMap();
-        Map map2 = new HashMap();
-        map2.put("b", "bValue");
-        map1.put("a", map2);
-        B1 bean1 = new B1();
-        map.put("result_1", bean1);
-        map1.put("a.b", "a.bValue");
-        map.put("result_2", map1);
-
-        // test getValue from map
-        Assert.assertEquals("bValue", ReferenceResolverUtil.getValue(map, "[result_1].a[b]"));
-        Assert.assertEquals("a.bValue", ReferenceResolverUtil.getValue(map, "[result_2][a.b]"));
-        Assert.assertEquals("bValue", ReferenceResolverUtil.getValue(map, "[result_2][a][b]"));
-        Assert.assertEquals("fValue", ReferenceResolverUtil.getValue(map, "[result_1].bean2.e[f]"));
-
-        // test getValue from bean
-        Assert.assertEquals("bValue", ReferenceResolverUtil.getValue(bean1, "a[b]"));
-        Assert.assertEquals("bValue", ReferenceResolverUtil.getValue(bean1, ".a[b]"));
-        Assert.assertEquals("fValue", ReferenceResolverUtil.getValue(bean1, "bean2.e[f]"));
-        Assert.assertEquals("fValue", ReferenceResolverUtil.getValue(bean1, ".bean2.e[f]"));
+    public void testSplitReferenceToTokens() {
+        Assert.assertNull(ReferenceResolver.splitReferenceToTokens(null));
+        Assert.assertTrue(ReferenceResolver.splitReferenceToTokens("").length == 0);
+        final String[] referenceTokens = ReferenceResolver
+                .splitReferenceToTokens(".module.array[\".na[m}.\"e\"][1].values1");
+        Assert.assertTrue(referenceTokens[0].equals("module"));
+        Assert.assertTrue(referenceTokens[1].equals("array"));
+        Assert.assertTrue(referenceTokens[2].equals(".na[m}.\"e"));
+        Assert.assertTrue(referenceTokens[3].equals("1"));
+        Assert.assertTrue(referenceTokens[4].equals("values1"));
     }
 
-    class B1 {
-        public Object getA() {
-            Map map2 = new HashMap();
-            map2.put("b", "bValue");
-            return map2;
-        }
+    @Test
+    public void testResolvingFromNull() {
+        String ken = "Ken";
+        Assert.assertEquals(ken,
+                ReferenceResolver.resolveComplexDataReference(ken, ReferenceResolver.splitReferenceToTokens(null)));
+    }
 
-        public Object getBean2() {
-            return new B2();
+    @Test
+    public void testResolvingFromEmptyString() {
+        String ken = "Ken";
+        Assert.assertEquals(ken,
+                ReferenceResolver.resolveComplexDataReference(ken, ReferenceResolver.splitReferenceToTokens("")));
+    }
+
+    @Test
+    public void testGetFromList() {
+        String ken = "Ken";
+        List<String> names = Arrays.asList("John", ken, "Sue");
+        Assert.assertEquals(ken,
+                ReferenceResolver.resolveComplexDataReference(names, ReferenceResolver.splitReferenceToTokens("[1]")));
+    }
+
+    @Test(expected = NumberFormatException.class)
+    public void testGetFromListInvalidIndexFormat() {
+        List<String> names = Arrays.asList("John", "Ken", "Sue");
+        ReferenceResolver.resolveComplexDataReference(names, ReferenceResolver.splitReferenceToTokens("[Ten]"));
+    }
+
+    @Test
+    public void getFromMap() {
+        String phone = "0331 1387 121";
+        Map<String, String> phones = new HashMap<>();
+        phones.put("John", phone);
+        phones.put("Sue", "0222 2184 121");
+        phones.put("Mark", "0222 5641 121");
+        Assert.assertEquals(phone, ReferenceResolver.resolveComplexDataReference(phones,
+                ReferenceResolver.splitReferenceToTokens("[\"John\"]")));
+    }
+
+    @Test
+    public void getFromMapWithKeyThatContainsSpecialCharacters() {
+        String phone = "0331 1387 121";
+        Map<String, String> phones = new HashMap<>();
+        phones.put("John[].Smi\"th].", phone);
+        phones.put("Sue", "0222 2184 121");
+        phones.put("Mark", "0222 5641 121");
+        Assert.assertEquals(phone, ReferenceResolver.resolveComplexDataReference(phones,
+                ReferenceResolver.splitReferenceToTokens("[\"John[].Smi\"th].\"]")));
+    }
+
+    @Test
+    public void getFromMapUnExistingKey() {
+        Map<String, String> phones = new HashMap<>();
+        phones.put("Sue", "0222 2184 121");
+        phones.put("Mark", "0222 5641 121");
+        Assert.assertNull(ReferenceResolver.resolveComplexDataReference(phones,
+                ReferenceResolver.splitReferenceToTokens("[\"John\"]")));
+    }
+
+    @Test
+    public void getFromList() {
+        String ken = "Ken";
+        List<String> names = Arrays.asList(new String[] { "John", ken, "Sue" });
+        Assert.assertEquals(ken,
+                ReferenceResolver.resolveComplexDataReference(names, ReferenceResolver.splitReferenceToTokens("[1]")));
+    }
+
+    @Test(expected = ArrayIndexOutOfBoundsException.class)
+    public void testGetFromListInvalidIndex() {
+        List<String> names = Arrays.asList(new String[] { "John", "Ken", "Sue" });
+        ReferenceResolver.resolveComplexDataReference(names, ReferenceResolver.splitReferenceToTokens("[10]"));
+    }
+
+    @Test(expected = NumberFormatException.class)
+    public void testGetFromInvalidIndexFormat() {
+        List<String> names = Arrays.asList(new String[] { "John", "Ken", "Sue" });
+        ReferenceResolver.resolveComplexDataReference(names, ReferenceResolver.splitReferenceToTokens("[Ten]"));
+    }
+
+    @Test
+    public void testGetFromBean() {
+        String name = "John";
+        B1<String> b3 = new B1<>(name);
+        Assert.assertEquals(name,
+                ReferenceResolver.resolveComplexDataReference(b3, ReferenceResolver.splitReferenceToTokens("value")));
+    }
+
+    @Test
+    public void testGetFromBeanWithPrivateField() {
+        String name = "John";
+        B2<String> b4 = new B2<>(name);
+        Assert.assertEquals(name,
+                ReferenceResolver.resolveComplexDataReference(b4, ReferenceResolver.splitReferenceToTokens("value")));
+    }
+
+    @Test
+    public void testBeanFromBean() {
+        String phone = "0331 1387 121";
+        Map<String, String> phones = new HashMap<>();
+        phones.put("John", phone);
+        B1<Map<String, String>> b3 = new B1<>(phones);
+        B2<B1<Map<String, String>>> b4 = new B2<>(b3);
+        Assert.assertEquals(phone, ReferenceResolver.resolveComplexDataReference(b4,
+                ReferenceResolver.splitReferenceToTokens("value.value[\"John\"]")));
+    }
+
+    @Test()
+    public void testGetBeanFieldFromList() {
+        String name = "John";
+        B1<String> b31 = new B1<>("Ken");
+        B1<String> b32 = new B1<>("Sue");
+        B1<String> b33 = new B1<>(name);
+        List<B1<String>> b = Arrays.asList(b31, b32, b33);
+        Assert.assertEquals(name, ReferenceResolver.resolveComplexDataReference(b,
+                ReferenceResolver.splitReferenceToTokens("[2].value")));
+    }
+
+    public class B1<T> {
+        @SuppressWarnings("unused")
+        private final T value;
+
+        public B1(T value) {
+            this.value = value;
         }
     }
 
-    class B2 {
-        public Object getE() {
-            Map map2 = new HashMap();
-            map2.put("f", "fValue");
-            return map2;
+    public class B2<T> {
+        public T value;
+
+        public B2(T value) {
+            this.value = value;
         }
     }
-
 }

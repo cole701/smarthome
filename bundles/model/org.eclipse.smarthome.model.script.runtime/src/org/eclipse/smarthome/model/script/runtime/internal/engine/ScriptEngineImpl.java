@@ -1,16 +1,21 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.model.script.runtime.internal.engine;
 
-import static com.google.common.collect.Iterables.filter;
-
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.common.util.URI;
@@ -19,12 +24,13 @@ import org.eclipse.emf.ecore.resource.Resource;
 import org.eclipse.emf.ecore.resource.Resource.Diagnostic;
 import org.eclipse.emf.ecore.resource.ResourceSet;
 import org.eclipse.smarthome.model.core.ModelParser;
+import org.eclipse.smarthome.model.script.ScriptServiceUtil;
+import org.eclipse.smarthome.model.script.ScriptStandaloneSetup;
 import org.eclipse.smarthome.model.script.engine.Script;
 import org.eclipse.smarthome.model.script.engine.ScriptEngine;
 import org.eclipse.smarthome.model.script.engine.ScriptExecutionException;
 import org.eclipse.smarthome.model.script.engine.ScriptParsingException;
 import org.eclipse.smarthome.model.script.runtime.ScriptRuntime;
-import org.eclipse.smarthome.model.script.runtime.internal.ScriptRuntimeStandaloneSetup;
 import org.eclipse.xtext.diagnostics.Severity;
 import org.eclipse.xtext.resource.XtextResource;
 import org.eclipse.xtext.resource.XtextResourceSet;
@@ -34,10 +40,12 @@ import org.eclipse.xtext.validation.CheckMode;
 import org.eclipse.xtext.validation.IResourceValidator;
 import org.eclipse.xtext.validation.Issue;
 import org.eclipse.xtext.xbase.XExpression;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Predicate;
 
 /**
  * This is the implementation of a {@link ScriptEngine} which is made available as an OSGi service.
@@ -46,30 +54,36 @@ import com.google.common.base.Predicate;
  * @author Oliver Libutzki - Reorganization of Guice injection
  *
  */
+@Component(immediate = true)
 public class ScriptEngineImpl implements ScriptEngine, ModelParser {
 
     protected XtextResourceSet resourceSet;
 
     private final Logger logger = LoggerFactory.getLogger(ScriptEngineImpl.class);
 
+    private ScriptServiceUtil scriptServiceUtil;
+
     public ScriptEngineImpl() {
     }
 
+    @Activate
     public void activate() {
-        ScriptRuntimeStandaloneSetup.doSetup();
+        ScriptStandaloneSetup.doSetup(scriptServiceUtil, this);
         logger.debug("Registered 'script' configuration parser");
     }
 
     private XtextResourceSet getResourceSet() {
         if (resourceSet == null) {
-            resourceSet = ScriptRuntimeStandaloneSetup.getInjector().getInstance(XtextResourceSet.class);
+            resourceSet = ScriptStandaloneSetup.getInjector().getInstance(XtextResourceSet.class);
             resourceSet.addLoadOption(XtextResource.OPTION_RESOLVE_ALL, Boolean.FALSE);
         }
         return resourceSet;
     }
 
+    @Deactivate
     public void deactivate() {
         this.resourceSet = null;
+        ScriptStandaloneSetup.unregister();
     }
 
     /**
@@ -81,27 +95,29 @@ public class ScriptEngineImpl implements ScriptEngine, ModelParser {
     protected void unsetScriptRuntime(final ScriptRuntime scriptRuntime) {
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    @Reference
+    protected void setScriptServiceUtil(ScriptServiceUtil scriptServiceUtil) {
+        this.scriptServiceUtil = scriptServiceUtil;
+        scriptServiceUtil.setScriptEngine(this);
+    }
+
+    protected void unsetScriptServiceUtil(ScriptServiceUtil scriptServiceUtil) {
+        scriptServiceUtil.unsetScriptEngine(this);
+        this.scriptServiceUtil = null;
+    }
+
     @Override
     public Script newScriptFromString(String scriptAsString) throws ScriptParsingException {
         return newScriptFromXExpression(parseScriptIntoXTextEObject(scriptAsString));
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Script newScriptFromXExpression(XExpression expression) {
-        ScriptImpl script = ScriptRuntimeStandaloneSetup.getInjector().getInstance(ScriptImpl.class);
+        ScriptImpl script = ScriptStandaloneSetup.getInjector().getInstance(ScriptImpl.class);
         script.setXExpression(expression);
         return script;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public Object executeScript(String scriptAsString) throws ScriptParsingException, ScriptExecutionException {
         return newScriptFromString(scriptAsString).execute();
@@ -111,7 +127,8 @@ public class ScriptEngineImpl implements ScriptEngine, ModelParser {
         XtextResourceSet resourceSet = getResourceSet();
         Resource resource = resourceSet.createResource(computeUnusedUri(resourceSet)); // IS-A XtextResource
         try {
-            resource.load(new StringInputStream(scriptAsString), resourceSet.getLoadOptions());
+            resource.load(new StringInputStream(scriptAsString, StandardCharsets.UTF_8.name()),
+                    resourceSet.getLoadOptions());
         } catch (IOException e) {
             throw new ScriptParsingException(
                     "Unexpected IOException; from close() of a String-based ByteArrayInputStream, no real I/O; how is that possible???",
@@ -160,13 +177,7 @@ public class ScriptEngineImpl implements ScriptEngine, ModelParser {
 
     protected Iterable<Issue> getValidationErrors(final EObject model) {
         final List<Issue> validate = validate(model);
-        Iterable<Issue> issues = filter(validate, new Predicate<Issue>() {
-            @Override
-            public boolean apply(Issue input) {
-                return Severity.ERROR == input.getSeverity();
-            }
-        });
-        return issues;
+        return validate.stream().filter(input -> Severity.ERROR == input.getSeverity()).collect(Collectors.toList());
     }
 
     @Override

@@ -1,20 +1,19 @@
-/*******************************************************************************
+/**
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
  *
- * Copyright (c) 2016  Bosch Software Innovations GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * and Eclipse Distribution License v1.0 which accompany this distribution.
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
  *
- * The Eclipse Public License is available at
- * http://www.eclipse.org/legal/epl-v10.html
- * The Eclipse Distribution License is available at
- * http://www.eclipse.org/org/documents/edl-v10.php.
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
  *
- *******************************************************************************/
+ * SPDX-License-Identifier: EPL-2.0
+ */
 package org.eclipse.smarthome.automation.internal.core.provider;
 
 import java.util.ArrayList;
-import java.util.Dictionary;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,10 +52,8 @@ public class HostFragmentMappingUtil {
     static List<Bundle> returnHostBundles(Bundle fragment) {
         List<Bundle> hosts = new ArrayList<Bundle>();
         Bundle[] bundles = pkgAdmin.getHosts(fragment);
-        if (bundles != null && bundles.length > 0) {
-            for (int i = 0; i < bundles.length; i++) {
-                hosts.add(bundles[i]);
-            }
+        if (bundles != null) {
+            hosts = Arrays.asList(bundles);
         } else {
             for (Bundle host : hostFragmentMapping.keySet()) {
                 if (hostFragmentMapping.get(host).contains(fragment)) {
@@ -67,17 +64,16 @@ public class HostFragmentMappingUtil {
         return hosts;
     }
 
-    static void fillHostFragmentMapping(Bundle host) {
+    static List<Bundle> fillHostFragmentMapping(Bundle host) {
         List<Bundle> fragments = new ArrayList<Bundle>();
         Bundle[] bundles = pkgAdmin.getFragments(host);
         if (bundles != null) {
-            for (int i = 0; i < bundles.length; i++) {
-                fragments.add(bundles[i]);
-            }
+            fragments = Arrays.asList(bundles);
         }
         synchronized (hostFragmentMapping) {
             hostFragmentMapping.put(host, fragments);
         }
+        return fragments;
     }
 
     static void fillHostFragmentMapping(List<Bundle> hosts) {
@@ -102,8 +98,11 @@ public class HostFragmentMappingUtil {
     }
 
     static boolean isFragmentBundle(Bundle bundle) {
-        Dictionary<String, String> h = bundle.getHeaders();
-        return h.get("Fragment-Host") != null;
+        PackageAdmin pkgAdmin = HostFragmentMappingUtil.pkgAdmin;
+        if (pkgAdmin == null) {
+            throw new IllegalStateException();
+        }
+        return pkgAdmin.getBundleType(bundle) == PackageAdmin.BUNDLE_TYPE_FRAGMENT;
     }
 
 }

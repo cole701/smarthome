@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.sonos.internal;
 
@@ -12,8 +17,8 @@ import java.io.Serializable;
 /**
  * Contains the resource meta data within a browse response result
  * "<r:resMD>..</r:resMD>". This is used for SONOS favorites.
- * 
- * @author Dan Cunningham
+ *
+ * @author Dan Cunningham - Initial contribution
  *
  */
 public class SonosResourceMetaData implements Serializable {
@@ -36,7 +41,7 @@ public class SonosResourceMetaData implements Serializable {
 
     /**
      * The parent id for the resource meta data
-     * 
+     *
      * @return
      */
     public String getId() {
@@ -45,7 +50,7 @@ public class SonosResourceMetaData implements Serializable {
 
     /**
      * The parent id for the resource meta data
-     * 
+     *
      * @return
      */
     public String getParentId() {
@@ -54,7 +59,7 @@ public class SonosResourceMetaData implements Serializable {
 
     /**
      * title from the resource meta data
-     * 
+     *
      * @return
      */
     public String getTitle() {
@@ -65,7 +70,7 @@ public class SonosResourceMetaData implements Serializable {
      * The upnp class for the resource meta data. This can be different from the
      * parent meta data class and should be used to match the play type over the
      * parent value.
-     * 
+     *
      * @return
      */
     public String getUpnpClass() {
@@ -75,7 +80,7 @@ public class SonosResourceMetaData implements Serializable {
     /**
      * The desc text for the resource meta data. This contains the service login
      * id for streaming accounts (pandora, spotify, etc..)
-     * 
+     *
      * @return
      */
     public String getDesc() {

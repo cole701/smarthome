@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.module.core.handler;
 
@@ -28,6 +33,7 @@ import org.slf4j.LoggerFactory;
  *
  * @author Benedikt Niehues - Initial contribution and API
  * @author Kai Kreuzer - refactored and simplified customized module handling
+ * @author Stefan Triller - use command from input first and if not set, use command from configuration
  *
  */
 public class ItemCommandActionHandler extends BaseModuleHandler<Action> implements ActionHandler {
@@ -97,14 +103,29 @@ public class ItemCommandActionHandler extends BaseModuleHandler<Action> implemen
     public Map<String, Object> execute(Map<String, Object> inputs) {
         String itemName = (String) module.getConfiguration().get(ITEM_NAME);
         String command = (String) module.getConfiguration().get(COMMAND);
-        if (itemName != null && command != null && eventPublisher != null && itemRegistry != null) {
+
+        if (itemName != null && eventPublisher != null && itemRegistry != null) {
             try {
                 Item item = itemRegistry.getItem(itemName);
-                Command commandObj = TypeParser.parseCommand(item.getAcceptedCommandTypes(), command);
-                ItemCommandEvent itemCommandEvent = ItemEventFactory.createCommandEvent(itemName, commandObj);
-                logger.debug("Executing ItemCommandAction on Item {} with Command {}", itemCommandEvent.getItemName(),
-                        itemCommandEvent.getItemCommand());
-                eventPublisher.post(itemCommandEvent);
+
+                Command commandObj = null;
+                Object cmd = inputs.get(COMMAND);
+
+                if (cmd instanceof Command) {
+                    if (item.getAcceptedCommandTypes().contains(cmd.getClass())) {
+                        commandObj = (Command) cmd;
+                    }
+                } else {
+                    commandObj = TypeParser.parseCommand(item.getAcceptedCommandTypes(), command);
+                }
+                if (commandObj != null) {
+                    ItemCommandEvent itemCommandEvent = ItemEventFactory.createCommandEvent(itemName, commandObj);
+                    logger.debug("Executing ItemCommandAction on Item {} with Command {}",
+                            itemCommandEvent.getItemName(), itemCommandEvent.getItemCommand());
+                    eventPublisher.post(itemCommandEvent);
+                } else {
+                    logger.warn("Command '{}' is not valid for item '{}'.", command, itemName);
+                }
             } catch (ItemNotFoundException e) {
                 logger.error("Item with name {} not found in ItemRegistry.", itemName);
             }

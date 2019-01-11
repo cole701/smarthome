@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.type;
 
@@ -33,7 +38,6 @@ public class ChannelGroupDefinition {
      * @param typeUID the type UID of the channel group (must not be null)
      * @param label the label for the channel group to override ChannelGroupType (could be null)
      * @param description the description for the channel group to override ChannelGroupType (could be null)
-     *
      * @throws IllegalArgumentException if the ID is null or empty, or the type is null
      */
     public ChannelGroupDefinition(String id, ChannelGroupTypeUID typeUID, String label, String description)
@@ -57,7 +61,6 @@ public class ChannelGroupDefinition {
      *
      * @param id the identifier of the channel group (must neither be null nor empty)
      * @param typeUID the type UID of the channel group (must not be null)
-     *
      * @throws IllegalArgumentException if the ID is null or empty, or the type is null
      */
     public ChannelGroupDefinition(String id, ChannelGroupTypeUID typeUID) throws IllegalArgumentException {

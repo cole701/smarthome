@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.internal.commands;
 
@@ -131,10 +136,7 @@ public class AutomationCommandExport extends AutomationCommand {
     private File initFile(String parameterValue) {
         File f = new File(parameterValue);
         File parent = f.getParentFile();
-        if (!parent.isDirectory() && !parent.mkdirs()) {
-            return null;
-        }
-        return f;
+        return (parent == null || (!parent.isDirectory() && !parent.mkdirs())) ? null : f;
     }
 
     /**
@@ -171,7 +173,7 @@ public class AutomationCommandExport extends AutomationCommand {
                 }
                 parserType = parameterValues[i];
             } else if (parameterValues[i].charAt(0) == '-') {
-                return String.format("Unsupported option: {1}", parameterValues[i]);
+                return String.format("Unsupported option: %s", parameterValues[i]);
             } else if (getFile) {
                 file = initFile(parameterValues[i]);
                 if (file != null) {

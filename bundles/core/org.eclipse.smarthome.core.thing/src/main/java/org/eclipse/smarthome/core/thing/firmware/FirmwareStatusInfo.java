@@ -1,41 +1,50 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.firmware;
 
-import org.eclipse.smarthome.core.thing.Thing;
-import org.eclipse.smarthome.core.thing.binding.firmware.FirmwareUID;
+import java.util.Objects;
 
-import com.google.common.base.Preconditions;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.smarthome.core.thing.Thing;
+import org.eclipse.smarthome.core.thing.ThingUID;
 
 /**
  * The {@link FirmwareStatusInfo} represents the {@link FirmwareStatus} of a {@link Thing}. If the firmware status is
- * {@link FirmwareStatus#UPDATE_EXECUTABLE} then the information object will also provide the {@link FirmwareUID} of the
- * latest updatable firmware for the thing.
+ * {@link FirmwareStatus#UPDATE_EXECUTABLE} then the information object will also provide the thing UID and the
+ * version of the latest updatable firmware for the thing.
  *
  * @author Thomas Höfer - Initial contribution
+ * @author Dimitar Ivanov - Consolidated all the needed information for firmware status events
  */
+@NonNullByDefault
 public final class FirmwareStatusInfo {
 
-    private FirmwareStatus firmwareStatus;
+    private final ThingUID thingUID;
 
-    private FirmwareUID updatableFirmwareUID;
+    private final FirmwareStatus firmwareStatus;
 
-    /**
-     * Default constructor. Will allow to instantiate this class by reflection.
-     */
-    protected FirmwareStatusInfo() {
-        // does nothing at all
-    }
+    @Nullable
+    private final String firmwareVersion;
 
-    private FirmwareStatusInfo(FirmwareStatus firmwareStatus, FirmwareUID updatableFirmwareUID) {
-        Preconditions.checkNotNull(firmwareStatus, "Firmware status must not be null.");
+    private FirmwareStatusInfo(ThingUID thingUID, FirmwareStatus firmwareStatus, @Nullable String firmwareVersion) {
+        Objects.requireNonNull(thingUID, "Thing UID must not be null.");
+        this.thingUID = thingUID;
+
+        Objects.requireNonNull(firmwareStatus, "Firmware status must not be null.");
         this.firmwareStatus = firmwareStatus;
-        this.updatableFirmwareUID = updatableFirmwareUID;
+
+        this.firmwareVersion = firmwareVersion;
     }
 
     /**
@@ -43,8 +52,8 @@ public final class FirmwareStatusInfo {
      *
      * @return the firmware status info (not null)
      */
-    static FirmwareStatusInfo createUnknownInfo() {
-        return new FirmwareStatusInfo(FirmwareStatus.UNKNOWN, null);
+    public static FirmwareStatusInfo createUnknownInfo(ThingUID thingUID) {
+        return new FirmwareStatusInfo(thingUID, FirmwareStatus.UNKNOWN, null);
     }
 
     /**
@@ -52,8 +61,8 @@ public final class FirmwareStatusInfo {
      *
      * @return the firmware status info (not null)
      */
-    static FirmwareStatusInfo createUpToDateInfo() {
-        return new FirmwareStatusInfo(FirmwareStatus.UP_TO_DATE, null);
+    public static FirmwareStatusInfo createUpToDateInfo(ThingUID thingUID) {
+        return new FirmwareStatusInfo(thingUID, FirmwareStatus.UP_TO_DATE, null);
     }
 
     /**
@@ -61,23 +70,19 @@ public final class FirmwareStatusInfo {
      *
      * @return the firmware status info (not null)
      */
-    static FirmwareStatusInfo createUpdateAvailableInfo() {
-        return new FirmwareStatusInfo(FirmwareStatus.UPDATE_AVAILABLE, null);
+    public static FirmwareStatusInfo createUpdateAvailableInfo(ThingUID thingUID) {
+        return new FirmwareStatusInfo(thingUID, FirmwareStatus.UPDATE_AVAILABLE, null);
     }
 
     /**
      * Creates a new {@link FirmwareStatusInfo} having {@link FirmwareStatus#UPDATE_EXECUTBALE) as firmware status. The
-     * given {@link FirmwareUID} represents the UID of the latest updatable firmware for the thing.
+     * given firmware version represents the version of the latest updatable firmware for the thing.
      *
-     * @param updatableFirmwareUID the UID of the latest updatable firmware for the thing (must not be null)
-     *
+     * @param firmwareVersion the version of the latest updatable firmware for the thing (must not be null)
      * @return the firmware status info (not null)
-     *
-     * @throws NullPointerException if given firmware UID is null
      */
-    static FirmwareStatusInfo createUpdateExecutableInfo(FirmwareUID updatableFirmwareUID) {
-        Preconditions.checkNotNull(updatableFirmwareUID, "Updatable firmware UID must not be null.");
-        return new FirmwareStatusInfo(FirmwareStatus.UPDATE_EXECUTABLE, updatableFirmwareUID);
+    public static FirmwareStatusInfo createUpdateExecutableInfo(ThingUID thingUID, @Nullable String firmwareVersion) {
+        return new FirmwareStatusInfo(thingUID, FirmwareStatus.UPDATE_EXECUTABLE, firmwareVersion);
     }
 
     /**
@@ -90,25 +95,36 @@ public final class FirmwareStatusInfo {
     }
 
     /**
-     * Returns the firmware UID of the latest updatable firmware for the thing.
+     * Returns the firmware version of the latest updatable firmware for the thing.
      *
-     * @return the firmware UID (only set if firmware status is {@link FirmwareStatus#UPDATE_EXECUTABLE})
+     * @return the firmware version (only set if firmware status is {@link FirmwareStatus#UPDATE_EXECUTABLE})
      */
-    public FirmwareUID getUpdatableFirmwareUID() {
-        return updatableFirmwareUID;
+    @Nullable
+    public String getUpdatableFirmwareVersion() {
+        return this.firmwareVersion;
+    }
+
+    /**
+     * Returns the thing UID.
+     *
+     * @return the thing UID of the thing, whose status is updated (not null)
+     */
+    public ThingUID getThingUID() {
+        return thingUID;
     }
 
     @Override
     public int hashCode() {
         final int prime = 31;
         int result = 1;
+        result = prime * result + ((thingUID == null) ? 0 : thingUID.hashCode());
         result = prime * result + ((firmwareStatus == null) ? 0 : firmwareStatus.hashCode());
-        result = prime * result + ((updatableFirmwareUID == null) ? 0 : updatableFirmwareUID.hashCode());
+        result = prime * result + ((firmwareVersion == null) ? 0 : firmwareVersion.hashCode());
         return result;
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (this == obj) {
             return true;
         }
@@ -122,11 +138,18 @@ public final class FirmwareStatusInfo {
         if (firmwareStatus != other.firmwareStatus) {
             return false;
         }
-        if (updatableFirmwareUID == null) {
-            if (other.updatableFirmwareUID != null) {
+        if (thingUID == null) {
+            if (other.thingUID != null) {
                 return false;
             }
-        } else if (!updatableFirmwareUID.equals(other.updatableFirmwareUID)) {
+        } else if (!thingUID.equals(other.thingUID)) {
+            return false;
+        }
+        if (firmwareVersion == null) {
+            if (other.firmwareVersion != null) {
+                return false;
+            }
+        } else if (!firmwareVersion.equals(other.firmwareVersion)) {
             return false;
         }
         return true;
@@ -134,8 +157,8 @@ public final class FirmwareStatusInfo {
 
     @Override
     public String toString() {
-        return "FirmwareStatusInfo [firmwareStatus=" + firmwareStatus + ", updatableFirmwareUID=" + updatableFirmwareUID
-                + "]";
+        return "FirmwareStatusInfo [firmwareStatus=" + firmwareStatus + ", firmwareVersion=" + firmwareVersion
+                + ", thingUID=" + thingUID + "]";
     }
 
 }

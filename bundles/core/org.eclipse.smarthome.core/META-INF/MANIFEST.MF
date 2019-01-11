@@ -1,7 +1,17 @@
 Manifest-Version: 1.0
-Export-Package: org.eclipse.smarthome.core.auth,
+Bundle-License: https://www.eclipse.org/legal/epl-2.0/
+Bundle-ManifestVersion: 2
+Bundle-Name: Eclipse SmartHome Core
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-SymbolicName: org.eclipse.smarthome.core
+Bundle-Vendor: Eclipse.org/SmartHome
+Bundle-Version: 0.11.0.qualifier
+Export-Package: 
+ org.eclipse.smarthome.core.auth,
+ org.eclipse.smarthome.core.auth.client.oauth2,
  org.eclipse.smarthome.core.binding,
  org.eclipse.smarthome.core.binding.dto,
+ org.eclipse.smarthome.core.cache,
  org.eclipse.smarthome.core.common,
  org.eclipse.smarthome.core.common.osgi,
  org.eclipse.smarthome.core.common.registry,
@@ -11,51 +21,68 @@ Export-Package: org.eclipse.smarthome.core.auth,
  org.eclipse.smarthome.core.items;uses:="org.eclipse.smarthome.core.types,org.eclipse.smarthome.core.events",
  org.eclipse.smarthome.core.items.dto,
  org.eclipse.smarthome.core.items.events,
+ org.eclipse.smarthome.core.library,
+ org.eclipse.smarthome.core.library.dimension,
  org.eclipse.smarthome.core.library.items,
  org.eclipse.smarthome.core.library.types,
+ org.eclipse.smarthome.core.library.unit,
  org.eclipse.smarthome.core.net,
  org.eclipse.smarthome.core.scheduler,
  org.eclipse.smarthome.core.service,
  org.eclipse.smarthome.core.storage,
- org.eclipse.smarthome.core.types
-Service-Component: OSGI-INF/*.xml
-Private-Package: org.eclipse.smarthome.core.internal,org.eclipse.smarthome.core.internal.e
- vents,org.eclipse.smarthome.core.internal.items,org.eclipse.smarthome.core.internal.loggi
- ng
-Ignore-Package: org.eclipse.smarthome.core.internal.items,org.eclipse.smarthome.core.inter
- nal,org.eclipse.smarthome.core.internal.events,org.eclipse.smarthome.core.internal.loggin
- g
-Bundle-Name: Eclipse SmartHome Core
-Bundle-RequiredExecutionEnvironment: JavaSE-1.8
-Bundle-Vendor: Eclipse.org/SmartHome
-Bundle-Version: 0.9.0.qualifier
-Bundle-ManifestVersion: 2
-Bundle-License: http://www.eclipse.org/legal/epl-v10.html
-Import-Package: com.google.common.base,
- com.google.common.collect,
+ org.eclipse.smarthome.core.types,
+ org.eclipse.smarthome.core.types.util,
+ org.eclipse.smarthome.core.util
+Ignore-Package: org.eclipse.smarthome.core.internal.items,org.eclipse.sm
+ arthome.core.internal,org.eclipse.smarthome.core.internal.events,org.ec
+ lipse.smarthome.core.internal.logging
+Import-Package: 
  com.google.gson,
+ javax.measure,
+ javax.measure.quantity,
+ javax.measure.spi,
  org.apache.commons.io,
  org.apache.commons.lang,
+ org.eclipse.jdt.annotation;resolution:=optional,
+ org.eclipse.smarthome.core.auth,
  org.eclipse.smarthome.core.binding,
  org.eclipse.smarthome.core.binding.dto,
+ org.eclipse.smarthome.core.cache,
  org.eclipse.smarthome.core.common,
  org.eclipse.smarthome.core.common.osgi,
  org.eclipse.smarthome.core.common.registry,
  org.eclipse.smarthome.core.events,
+ org.eclipse.smarthome.core.extension,
  org.eclipse.smarthome.core.i18n,
  org.eclipse.smarthome.core.items,
  org.eclipse.smarthome.core.items.dto,
  org.eclipse.smarthome.core.items.events,
+ org.eclipse.smarthome.core.library,
+ org.eclipse.smarthome.core.library.dimension,
  org.eclipse.smarthome.core.library.items,
  org.eclipse.smarthome.core.library.types,
+ org.eclipse.smarthome.core.library.unit,
+ org.eclipse.smarthome.core.net,
+ org.eclipse.smarthome.core.scheduler,
  org.eclipse.smarthome.core.service,
  org.eclipse.smarthome.core.storage,
  org.eclipse.smarthome.core.types,
+ org.eclipse.smarthome.core.types.util,
  org.osgi.framework,
+ org.osgi.service.cm,
  org.osgi.service.component,
  org.osgi.service.event,
  org.osgi.service.packageadmin,
  org.osgi.util.tracker,
- org.slf4j
-Bundle-SymbolicName: org.eclipse.smarthome.core
-Bundle-Activator: org.eclipse.smarthome.core.internal.CoreActivator
+ org.slf4j,
+ tec.uom.lib.common,
+ tec.uom.se,
+ tec.uom.se.format,
+ tec.uom.se.function,
+ tec.uom.se.quantity,
+ tec.uom.se.unit
+Private-Package: org.eclipse.smarthome.core.internal,org.eclipse.smartho
+ me.core.internal.events,org.eclipse.smarthome.core.internal.items,org.e
+ clipse.smarthome.core.internal.logging,org.eclipse.smarthome.core.internal.items.group
+Service-Component: OSGI-INF/*.xml
+Automatic-Module-Name: org.eclipse.smarthome.core

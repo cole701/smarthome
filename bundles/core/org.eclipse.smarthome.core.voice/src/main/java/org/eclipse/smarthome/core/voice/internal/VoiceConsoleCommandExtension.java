@@ -1,32 +1,45 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.voice.internal;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 import org.apache.commons.lang.ArrayUtils;
+import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.smarthome.core.i18n.LocaleProvider;
 import org.eclipse.smarthome.core.items.Item;
 import org.eclipse.smarthome.core.items.ItemNotFoundException;
 import org.eclipse.smarthome.core.items.ItemNotUniqueException;
 import org.eclipse.smarthome.core.items.ItemRegistry;
+import org.eclipse.smarthome.core.voice.TTSService;
 import org.eclipse.smarthome.core.voice.Voice;
 import org.eclipse.smarthome.core.voice.VoiceManager;
 import org.eclipse.smarthome.core.voice.text.InterpretationException;
 import org.eclipse.smarthome.io.console.Console;
 import org.eclipse.smarthome.io.console.extensions.AbstractConsoleCommandExtension;
+import org.eclipse.smarthome.io.console.extensions.ConsoleCommandExtension;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
 
 /**
  * Console command extension for all voice features.
  *
  * @author Kai Kreuzer - Initial contribution and API
- *
+ * @author Wouter Born - Sort TTS voices
  */
+@Component(service = ConsoleCommandExtension.class)
 public class VoiceConsoleCommandExtension extends AbstractConsoleCommandExtension {
 
     private static final String SUBCMD_SAY = "say";
@@ -34,6 +47,7 @@ public class VoiceConsoleCommandExtension extends AbstractConsoleCommandExtensio
     private static final String SUBCMD_VOICES = "voices";
 
     private ItemRegistry itemRegistry;
+    private LocaleProvider localeProvider;
     private VoiceManager voiceManager;
 
     public VoiceConsoleCommandExtension() {
@@ -44,8 +58,7 @@ public class VoiceConsoleCommandExtension extends AbstractConsoleCommandExtensio
     public List<String> getUsages() {
         return Arrays.asList(new String[] { buildCommandUsage(SUBCMD_SAY + " <text>", "speaks a text"),
                 buildCommandUsage(SUBCMD_INTERPRET + " <command>", "interprets a human language command"),
-                buildCommandUsage(SUBCMD_VOICES, "lists available voices of the active TTS service") });
-
+                buildCommandUsage(SUBCMD_VOICES, "lists available voices of the TTS services") });
     }
 
     @Override
@@ -68,9 +81,15 @@ public class VoiceConsoleCommandExtension extends AbstractConsoleCommandExtensio
                     }
                     return;
                 case SUBCMD_VOICES:
+                    Locale locale = localeProvider.getLocale();
+                    Voice defaultVoice = getDefaultVoice();
                     for (Voice voice : voiceManager.getAllVoices()) {
-                        console.println(
-                                voice.getUID() + " " + voice.getLabel() + " - " + voice.getLocale().getDisplayName());
+                        TTSService ttsService = voiceManager.getTTS(voice.getUID().split(":")[0]);
+                        if (ttsService != null) {
+                            console.println(String.format("%s %s - %s - %s (%s)",
+                                    voice.equals(defaultVoice) ? "*" : " ", ttsService.getLabel(locale),
+                                    voice.getLocale().getDisplayName(locale), voice.getLabel(), voice.getUID()));
+                        }
                     }
                     return;
                 default:
@@ -79,6 +98,17 @@ public class VoiceConsoleCommandExtension extends AbstractConsoleCommandExtensio
         } else {
             printUsage(console);
         }
+    }
+
+    private @Nullable Voice getDefaultVoice() {
+        Voice defaultVoice = voiceManager.getDefaultVoice();
+        if (defaultVoice == null) {
+            TTSService tts = voiceManager.getTTS();
+            if (tts != null) {
+                defaultVoice = voiceManager.getPreferredVoice(tts.getAvailableVoices());
+            }
+        }
+        return defaultVoice;
     }
 
     private void interpret(String[] args, Console console) {
@@ -122,6 +152,7 @@ public class VoiceConsoleCommandExtension extends AbstractConsoleCommandExtensio
         voiceManager.say(msg.toString());
     }
 
+    @Reference
     protected void setItemRegistry(ItemRegistry itemRegistry) {
         this.itemRegistry = itemRegistry;
     }
@@ -130,6 +161,16 @@ public class VoiceConsoleCommandExtension extends AbstractConsoleCommandExtensio
         this.itemRegistry = null;
     }
 
+    @Reference
+    protected void setLocaleProvider(LocaleProvider localeProvider) {
+        this.localeProvider = localeProvider;
+    }
+
+    protected void unsetLocaleProvider(LocaleProvider localeProvider) {
+        this.localeProvider = null;
+    }
+
+    @Reference
     protected void setVoiceManager(VoiceManager voiceManager) {
         this.voiceManager = voiceManager;
     }

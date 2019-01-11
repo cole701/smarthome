@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.io.transport.upnp;
 
@@ -25,8 +30,8 @@ public interface UpnpIOParticipant {
     /**
      * Called to notify if a GENA subscription succeeded or failed.
      *
-     * @param service - the UPnP service subscribed
-     * @param succeeded - true if the subscription succeeded; false if failed
+     * @param service the UPnP service subscribed
+     * @param succeeded true if the subscription succeeded; false if failed
      */
     public void onServiceSubscribed(String service, boolean succeeded);
 
@@ -34,7 +39,7 @@ public interface UpnpIOParticipant {
      * Called when the UPNP IO service is unable to poll the UDN of the participant, given that
      * a addStatusListener is registered.
      *
-     * @param status - false, if the poll fails when the polling was previously successful; true if the poll succeeds
+     * @param status false, if the poll fails when the polling was previously successful; true if the poll succeeds
      *            when the polling was previously failing
      */
     public void onStatusChanged(boolean status);

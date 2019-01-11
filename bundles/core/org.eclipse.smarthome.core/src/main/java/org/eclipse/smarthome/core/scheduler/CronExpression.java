@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.scheduler;
 
@@ -11,11 +16,13 @@ import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.StringTokenizer;
 import java.util.TimeZone;
 
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.smarthome.core.scheduler.AbstractExpressionPart.BoundedIntegerSet;
 import org.eclipse.smarthome.core.scheduler.CronExpression.CronExpressionPart;
 import org.slf4j.Logger;
@@ -169,7 +176,7 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
      * @throws ParseException if the string expression cannot be parsed into a valid <code>CronExpression</code>.
      */
     public CronExpression(final String expression, final Date startTime, final TimeZone zone) throws ParseException {
-        super(expression, " \t", startTime, zone, 0, 2);
+        super(expression, " \t", startTime, zone, 0, 3);
     }
 
     @Override
@@ -210,7 +217,6 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
      * @return a boolean indicating whether the given expression is a valid cron expression
      */
     public static boolean isValidExpression(String cronExpression) {
-
         try {
             new CronExpression(cronExpression);
         } catch (ParseException pe) {
@@ -222,22 +228,33 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
 
     @Override
     protected void validateExpression() throws IllegalArgumentException {
+        DayOfMonthExpressionPart domPart = getExpressionPart(DayOfMonthExpressionPart.class);
+        DayOfWeekExpressionPart dowPart = getExpressionPart(DayOfWeekExpressionPart.class);
 
-        DayOfMonthExpressionPart domPart = (DayOfMonthExpressionPart) this
-                .getExpressionPart(DayOfMonthExpressionPart.class);
-        DayOfWeekExpressionPart dowPart = (DayOfWeekExpressionPart) this
-                .getExpressionPart(DayOfWeekExpressionPart.class);
-
-        if (!domPart.isNotSpecific() && !dowPart.isNotSpecific()) {
+        if (domPart.isNotSpecific() && dowPart.isNotSpecific()) {
             throw new IllegalArgumentException(
                     "The DayOfMonth and DayOfWeek rule parts CAN NOT be not specific at the same time.");
+        }
+
+        YearsExpressionPart yearsPart = getExpressionPart(YearsExpressionPart.class);
+
+        if (yearsPart == null) {
+            List<@NonNull CronExpressionPart> ep = getExpressionParts();
+            List<@NonNull CronExpressionPart> parts = new LinkedList<@NonNull CronExpressionPart>();
+            parts.addAll(ep);
+
+            try {
+                parts.add(new YearsExpressionPart("*"));
+            } catch (ParseException e) {
+                throw new IllegalArgumentException("Year rule part must contain * as a token");
+            }
+            setExpressionParts(parts);
         }
 
     }
 
     @Override
     protected void populateWithSeeds() {
-
         YearsExpressionPart thePart = null;
 
         for (ExpressionPart part : getExpressionParts()) {
@@ -376,7 +393,6 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
                         }
                     } catch (Exception e) {
                         throw new ParseException("Increment '" + v + "' is not a valid value", 0);
-
                     }
                     int fromValue = from.equals("*") ? 0 : Integer.parseInt(from);
                     getValueSet().add(fromValue, MAX_SECOND, Integer.parseInt(increment));
@@ -398,11 +414,11 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
         }
 
         @Override
-        public ArrayList<Date> apply(Date startDate, ArrayList<Date> candidates) {
+        public List<Date> apply(Date startDate, List<Date> candidates) {
             final Calendar cal = Calendar.getInstance(getTimeZone());
 
-            List<Date> newCandidates = new ArrayList<Date>();
-            List<Date> oldCandidates = new ArrayList<Date>();
+            List<Date> newCandidates = new ArrayList<>();
+            List<Date> oldCandidates = new ArrayList<>();
 
             if (candidates.isEmpty()) {
                 candidates.add(startDate);
@@ -475,7 +491,6 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
                         }
                     } catch (Exception e) {
                         throw new ParseException("Increment '" + v + "' is not a valid value", 0);
-
                     }
                     int fromValue = from.equals("*") ? 0 : Integer.parseInt(from);
                     getValueSet().add(fromValue, MAX_MINUTE, Integer.parseInt(increment));
@@ -497,11 +512,11 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
         }
 
         @Override
-        public ArrayList<Date> apply(Date startDate, ArrayList<Date> candidates) {
+        public List<Date> apply(Date startDate, List<Date> candidates) {
             final Calendar cal = Calendar.getInstance(getTimeZone());
 
-            List<Date> newCandidates = new ArrayList<Date>();
-            List<Date> oldCandidates = new ArrayList<Date>();
+            List<Date> newCandidates = new ArrayList<>();
+            List<Date> oldCandidates = new ArrayList<>();
 
             if (candidates.isEmpty()) {
                 candidates.add(startDate);
@@ -574,7 +589,6 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
                         }
                     } catch (Exception e) {
                         throw new ParseException("Increment '" + v + "' is not a valid value", 0);
-
                     }
                     int fromValue = from.equals("*") ? 0 : Integer.parseInt(from);
                     getValueSet().add(fromValue, MAX_HOUR, Integer.parseInt(increment));
@@ -597,11 +611,11 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
         }
 
         @Override
-        public ArrayList<Date> apply(Date startDate, ArrayList<Date> candidates) {
+        public List<Date> apply(Date startDate, List<Date> candidates) {
             final Calendar cal = Calendar.getInstance(getTimeZone());
 
-            List<Date> newCandidates = new ArrayList<Date>();
-            List<Date> oldCandidates = new ArrayList<Date>();
+            List<Date> newCandidates = new ArrayList<>();
+            List<Date> oldCandidates = new ArrayList<>();
 
             if (candidates.isEmpty()) {
                 candidates.add(startDate);
@@ -665,7 +679,6 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
                     throw new ParseException("Invalid Month value: '" + monthAsString + "'", 0);
                 }
             }
-
         }
 
         @Override
@@ -686,7 +699,6 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
                         }
                     } catch (Exception e) {
                         throw new ParseException("Increment '" + v + "' is not a valid value", 0);
-
                     }
                     int fromValue = from.equals("*") ? 0 : monthAsInteger(from);
                     getValueSet().add(fromValue, MAX_MONTH, monthAsInteger(increment));
@@ -708,11 +720,11 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
         }
 
         @Override
-        public ArrayList<Date> apply(Date startDate, ArrayList<Date> candidates) {
+        public List<Date> apply(Date startDate, List<Date> candidates) {
             final Calendar cal = Calendar.getInstance(getTimeZone());
 
-            List<Date> newCandidates = new ArrayList<Date>();
-            List<Date> oldCandidates = new ArrayList<Date>();
+            List<Date> newCandidates = new ArrayList<>();
+            List<Date> oldCandidates = new ArrayList<>();
 
             if (candidates.isEmpty()) {
                 candidates.add(startDate);
@@ -864,13 +876,12 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
         }
 
         @Override
-        public ArrayList<Date> apply(Date startDate, ArrayList<Date> candidates) {
-
+        public List<Date> apply(Date startDate, List<Date> candidates) {
             if (!isNotSpecific) {
                 final Calendar cal = Calendar.getInstance(getTimeZone());
 
-                List<Date> newCandidates = new ArrayList<Date>();
-                List<Date> oldCandidates = new ArrayList<Date>();
+                List<Date> newCandidates = new ArrayList<>();
+                List<Date> oldCandidates = new ArrayList<>();
 
                 if (candidates.isEmpty()) {
                     candidates.add(startDate);
@@ -954,7 +965,6 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
 
         public DayOfWeekExpressionPart(String s) throws ParseException {
             super(s);
-
         }
 
         @Override
@@ -1062,13 +1072,12 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
         }
 
         @Override
-        public ArrayList<Date> apply(Date startDate, ArrayList<Date> candidates) {
-
+        public List<Date> apply(Date startDate, List<Date> candidates) {
             if (!isNotSpecific) {
                 final Calendar cal = Calendar.getInstance(getTimeZone());
-                List<Date> oldCandidates = new ArrayList<Date>();
+                List<Date> oldCandidates = new ArrayList<>();
 
-                List<Date> newCandidates = new ArrayList<Date>();
+                List<Date> newCandidates = new ArrayList<>();
 
                 if (candidates.isEmpty()) {
                     candidates.add(startDate);
@@ -1092,15 +1101,19 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
                         cal.set(Calendar.DAY_OF_WEEK_IN_MONTH, instanceOfMonth);
                         newCandidates.add(cal.getTime());
                     } else {
-                        for (Integer element : getValueSet()) {
+                        Calendar current = Calendar.getInstance();
+                        current.setTime(date);
+                        for (int i = 1; i <= 6; i++) {
                             cal.setTime(date);
-
-                            cal.set(Calendar.DAY_OF_WEEK, element);
-                            for (int i = 1; i <= 5; i++) {
-                                cal.set(Calendar.WEEK_OF_MONTH, i);
-                                newCandidates.add(cal.getTime());
+                            cal.set(Calendar.WEEK_OF_MONTH, i);
+                            Date weekInMonth = cal.getTime();
+                            for (Integer element : getValueSet()) {
+                                cal.setTime(weekInMonth);
+                                cal.set(Calendar.DAY_OF_WEEK, element);
+                                if (cal.get(Calendar.MONTH) == current.get(Calendar.MONTH)) {
+                                    newCandidates.add(cal.getTime());
+                                }
                             }
-
                         }
                     }
                 }
@@ -1184,11 +1197,11 @@ public final class CronExpression extends AbstractExpression<CronExpressionPart>
         }
 
         @Override
-        public ArrayList<Date> apply(Date startDate, ArrayList<Date> candidates) {
+        public List<Date> apply(Date startDate, List<Date> candidates) {
             final Calendar cal = Calendar.getInstance(getTimeZone());
 
-            List<Date> newCandidates = new ArrayList<Date>();
-            List<Date> oldCandidates = new ArrayList<Date>();
+            List<Date> newCandidates = new ArrayList<>();
+            List<Date> oldCandidates = new ArrayList<>();
 
             if (candidates.isEmpty()) {
                 candidates.add(startDate);

@@ -1,52 +1,70 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.handler;
 
 import java.util.Collection;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.automation.Module;
+import org.eclipse.smarthome.automation.Rule;
 
 /**
- * This interface is a factory of {@link ModuleHandler} instances. It is used to
- * create {@link TriggerHandler}, {@link ConditionHandler} and {@link ActionHandler} objects
- * base on the type of the passed {@link Module} instance. The ModuleHandlerFactory
- * is register as service in OSGi framework and it can serve more then one
- * module types. It is used by automation parser to associate {@link ModuleHandler} instance to passed {@link Module}
- * instance.
+ * This interface represents a factory for {@link ModuleHandler} instances. It is used for creating
+ * and disposing the {@link TriggerHandler}s, {@link ConditionHandler}s and {@link ActionHandler}s
+ * needed for the operation of the {@link Module}s included in {@link Rule}s.
+ * <p>
+ * {@link ModuleHandlerFactory} implementations must be registered as services in the OSGi framework.
  *
  * @author Yordan Mihaylov - Initial Contribution
  * @author Benedikt Niehues - change behavior for unregistering ModuleHandler
  */
+@NonNullByDefault
 public interface ModuleHandlerFactory {
 
     /**
-     * This method is used to return UIDs of module types supported by this {@link ModuleHandlerFactory}
+     * Returns the UIDs of the module types currently supported by this factory.
+     * A {@link ModuleHandlerFactory} instance can add new types to this list, but should not remove. If a
+     * module type is no longer supported, the {@link ModuleHandlerFactory} service must be unregistered, and
+     * then registered again with the new list.
+     * <p>
+     * If two or more {@link ModuleHandlerFactory}s support the same module type, the Rule Engine will choose
+     * one of them randomly. Once a factory is chosen, it will be used to create instances of this module
+     * type until its service is unregistered.
      *
-     * @return collection of module type unequal ids supported by this factory.
+     * @return collection of module type UIDs supported by this factory.
      */
     public Collection<String> getTypes();
 
     /**
-     * This method is used to get a ModuleHandler instance for the passed module
-     * instance
+     * Creates a {@link ModuleHandler} instance needed for the operation of the {@link Module}s
+     * included in {@link Rule}s.
      *
-     * @param module module instance for which the {@link ModuleHandler} instance is
-     *            created for.
-     *
-     * @return ModuleHandler instance.
+     * @param module  the {@link Module} for which a {@link ModuleHandler} instance must be created.
+     * @param ruleUID the identifier of the {@link Rule} that the given module belongs to.
+     * @return a new {@link ModuleHandler} instance, or {@code null} if the type of the
+     *         {@code module} parameter is not supported by this factory.
      */
-    public ModuleHandler getHandler(Module module, String ruleUID);
+    public @Nullable ModuleHandler getHandler(Module module, String ruleUID);
 
     /**
-     * This method signalizes the Factory that a ModuleHandler for the passed module is not needed anymore. Implementors
-     * must take care of invalidating caches and disposing the Handlers.
-     * 
-     * @param module
+     * Releases the {@link ModuleHandler} instance when it is not needed anymore
+     * for handling the specified {@code module} in the {@link Rule} with the specified {@code ruleUID}.
+     * If no other {@link Rule}s and {@link Module}s use this {@code handler} instance, it should be disposed.
+     *
+     * @param module  the {@link Module} for which the {@code handler} was created.
+     * @param ruleUID the identifier of the {@link Rule} that the given module belongs to.
+     * @param handler the {@link ModuleHandler} instance that is no longer needed.
      */
     public void ungetHandler(Module module, String ruleUID, ModuleHandler handler);
 

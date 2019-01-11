@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.lifx.internal.protocol;
 
@@ -11,19 +16,21 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.nio.ByteBuffer;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+
 /**
  * A generic handler that dynamically creates "standard" packet instances.
  *
  * <p>
  * Packet types must have an empty constructor and cannot require any
  * additional logic (other than parsing).
- * </p>
  *
  * @param <T> the packet subtype this handler constructs
- * 
+ *
  * @author Tim Buckley - Initial Contribution
  * @author Karel Goderis - Enhancement for the V2 LIFX Firmware and LAN Protocol Specification
  */
+@NonNullByDefault
 public class GenericHandler<T extends Packet> implements PacketHandler<T> {
 
     private Constructor<T> constructor;
@@ -54,7 +61,6 @@ public class GenericHandler<T extends Packet> implements PacketHandler<T> {
             // silently ignore
             typeFound = false;
         }
-
     }
 
     @Override

@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.io.rest.log.internal;
 
@@ -28,7 +33,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import org.eclipse.smarthome.io.rest.RESTResource;
-import org.eclipse.smarthome.io.rest.log.LogConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,7 +41,13 @@ import io.swagger.annotations.ApiOperation;
 import io.swagger.annotations.ApiParam;
 import io.swagger.annotations.ApiResponse;
 import io.swagger.annotations.ApiResponses;
+import org.osgi.service.component.annotations.Component;
 
+/**
+ *
+ * @author Sebastian Janzen - Initial contribution
+ */
+@Component
 @Path("/log")
 @Api(value = LogHandler.PATH_LOG)
 @Produces(MediaType.APPLICATION_JSON)
@@ -46,7 +56,7 @@ public class LogHandler implements RESTResource {
     private final Logger logger = LoggerFactory.getLogger(LogHandler.class);
     public static final String PATH_LOG = "log";
 
-    private final static String TEMPLATE_INTERNAL_ERROR = "{\"error\":\"%s\",\"severity\":\"%s\"}";
+    private static final String TEMPLATE_INTERNAL_ERROR = "{\"error\":\"%s\",\"severity\":\"%s\"}";
 
     /**
      * Rolling array to store the last LOG_BUFFER_LIMIT messages. Those can be fetched e.g. by a
@@ -80,22 +90,24 @@ public class LogHandler implements RESTResource {
             return Response.ok("[]").build();
         }
 
+        int effectiveLimit;
         if (limit == null || limit <= 0 || limit > LogConstants.LOG_BUFFER_LIMIT) {
-            limit = LOG_BUFFER.size();
+            effectiveLimit = LOG_BUFFER.size();
+        } else {
+            effectiveLimit = limit;
         }
 
-        if (limit >= LOG_BUFFER.size()) {
+        if (effectiveLimit >= LOG_BUFFER.size()) {
             return Response.ok(LOG_BUFFER.toArray()).build();
         } else {
             final List<LogMessage> result = new ArrayList<>();
             Iterator<LogMessage> iter = LOG_BUFFER.descendingIterator();
             do {
                 result.add(iter.next());
-            } while (iter.hasNext() && result.size() < limit);
+            } while (iter.hasNext() && result.size() < effectiveLimit);
             Collections.reverse(result);
             return Response.ok(result).build();
         }
-
     }
 
     @POST
@@ -107,8 +119,8 @@ public class LogHandler implements RESTResource {
     public Response log(final LogMessage logMessage) {
         if (logMessage == null) {
             logger.debug("Received null log message model!");
-            return Response.status(500).entity(String.format(TEMPLATE_INTERNAL_ERROR, LogConstants.LOG_HANDLE_ERROR))
-                    .build();
+            return Response.status(500)
+                    .entity(String.format(TEMPLATE_INTERNAL_ERROR, LogConstants.LOG_HANDLE_ERROR, "ERROR")).build();
         }
         logMessage.timestamp = Calendar.getInstance().getTimeInMillis();
 
@@ -122,7 +134,7 @@ public class LogHandler implements RESTResource {
             LOG_BUFFER.pollLast(); // Remove last element of Deque
         }
 
-        return Response.ok().build();
+        return Response.ok(null, MediaType.TEXT_PLAIN).build();
     }
 
     /**

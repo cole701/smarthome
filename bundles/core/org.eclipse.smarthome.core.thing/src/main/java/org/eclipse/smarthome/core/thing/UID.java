@@ -1,96 +1,69 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing;
 
-import java.util.Arrays;
+import java.util.List;
 
-import com.google.common.base.Joiner;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.smarthome.core.common.AbstractUID;
 
 /**
- * {@link UID} is the base class for unique identifiers within the SmartHome
- * framework. A UID must always start with a binding ID.
+ * Base class for binding related unique identifiers within the SmartHome framework.
+ * <p>
+ * A UID must always start with a binding ID.
  *
  * @author Dennis Nobel - Initial contribution
  * @author Oliver Libutzki - Added possibility to define UIDs with variable amount of segments
  * @author Jochen Hiller - Bugfix 455434: added default constructor, object is now mutable
  */
-public abstract class UID {
-
-    public static final String SEGMENT_PATTERN = "[A-Za-z0-9_-]*";
-    public static final String SEPARATOR = ":";
-    private String[] segments;
+@NonNullByDefault
+public abstract class UID extends AbstractUID {
 
     /**
-     * Constructor must be public, otherwise it can not be called by subclasses from another package.
+     * For reflection only.
+     * Constructor must be public, otherwise it cannot be called by subclasses from another package.
      */
     public UID() {
-        this.segments = null;
+        super();
     }
 
     /**
      * Parses a UID for a given string. The UID must be in the format
      * 'bindingId:segment:segment:...'.
      *
-     * @param uid
-     *            uid in form a string (must not be null)
+     * @param uid uid in form a string (must not be null)
      */
     public UID(String uid) {
-        this(splitToSegments(uid));
-    }
-
-    private static String[] splitToSegments(String uid) {
-        if (uid == null) {
-            throw new IllegalArgumentException("Given uid must not be null.");
-        }
-        return uid.split(SEPARATOR);
+        super(uid);
     }
 
     /**
      * Creates a UID for list of segments.
      *
-     * @param segments
-     *            segments (must not be null)
+     * @param segments segments (must not be null)
      */
     public UID(String... segments) {
-        if (segments == null) {
-            throw new IllegalArgumentException("Given segments argument must not be null.");
-        }
-        int numberOfSegments = getMinimalNumberOfSegments();
-        if (segments.length < numberOfSegments) {
-            throw new IllegalArgumentException("UID must have at least " + numberOfSegments + " segments.");
-        }
-        for (int i = 0; i < segments.length; i++) {
-            String segment = segments[i];
-            validateSegment(segment, i, segments.length);
-        }
-        this.segments = segments;
+        super(segments);
     }
 
     /**
-     * Specifies how many segments the UID has to have at least.
+     * Creates a UID for list of segments.
      *
-     * @return
+     * @param segments segments (must not be null)
      */
-    protected abstract int getMinimalNumberOfSegments();
-
-    protected String[] getSegments() {
-        return this.segments;
-    }
-
-    protected String getSegment(int segment) {
-        return this.segments[segment];
-    }
-
-    protected void validateSegment(String segment, int index, int length) {
-        if (!segment.matches(SEGMENT_PATTERN)) {
-            throw new IllegalArgumentException("UID segment '" + segment
-                    + "' contains invalid characters. Each segment of the UID must match the pattern [A-Za-z0-9_-]*.");
-        }
+    protected UID(List<String> segments) {
+        super(segments);
     }
 
     /**
@@ -99,38 +72,46 @@ public abstract class UID {
      * @return binding id
      */
     public String getBindingId() {
-        return segments[0];
+        return getSegment(0);
+    }
+
+    /**
+     * @deprecated use {@link #getAllSegments()} instead
+     */
+    @Deprecated
+    protected String[] getSegments() {
+        final List<String> segments = super.getAllSegments();
+        return segments.toArray(new String[segments.size()]);
     }
 
     @Override
+    // Avoid subclasses to require importing the o.e.sh.core.common package
+    protected List<String> getAllSegments() {
+        return super.getAllSegments();
+    }
+
+    @Override
+    // Avoid bindings to require importing the o.e.sh.core.common package
     public String toString() {
-        return getAsString();
+        return super.toString();
     }
 
+    @Override
+    // Avoid bindings to require importing the o.e.sh.core.common package
     public String getAsString() {
-        return Joiner.on(SEPARATOR).join(segments);
+        return super.getAsString();
     }
 
     @Override
+    // Avoid bindings to require importing the o.e.sh.core.common package
     public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + Arrays.hashCode(segments);
-        return result;
+        return super.hashCode();
     }
 
     @Override
-    public boolean equals(Object obj) {
-        if (this == obj)
-            return true;
-        if (obj == null)
-            return false;
-        if (getClass() != obj.getClass())
-            return false;
-        UID other = (UID) obj;
-        if (!Arrays.equals(segments, other.segments))
-            return false;
-        return true;
+    // Avoid bindings to require importing the o.e.sh.core.common package
+    public boolean equals(@Nullable Object obj) {
+        return super.equals(obj);
     }
 
 }

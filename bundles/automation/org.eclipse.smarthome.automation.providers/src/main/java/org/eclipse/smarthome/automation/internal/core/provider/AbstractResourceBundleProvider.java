@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.internal.core.provider;
 
@@ -14,6 +19,7 @@ import java.io.InputStreamReader;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.LinkedList;
@@ -38,7 +44,7 @@ import org.eclipse.smarthome.config.core.ParameterOption;
 import org.eclipse.smarthome.config.core.i18n.ConfigDescriptionI18nUtil;
 import org.eclipse.smarthome.core.common.registry.Provider;
 import org.eclipse.smarthome.core.common.registry.ProviderChangeListener;
-import org.eclipse.smarthome.core.i18n.I18nProvider;
+import org.eclipse.smarthome.core.i18n.TranslationProvider;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.util.tracker.BundleTrackerCustomizer;
@@ -67,7 +73,7 @@ public abstract class AbstractResourceBundleProvider<E> {
         logger = LoggerFactory.getLogger(this.getClass());
         providedObjectsHolder = new ConcurrentHashMap<String, E>();
         providerPortfolio = new ConcurrentHashMap<Vendor, List<String>>();
-        queue = new AutomationResourceBundlesEventQueue(this);
+        queue = new AutomationResourceBundlesEventQueue<E>(this);
         parsers = new ConcurrentHashMap<String, Parser<E>>();
         waitingProviders = new ConcurrentHashMap<Bundle, List<URL>>();
     }
@@ -76,12 +82,12 @@ public abstract class AbstractResourceBundleProvider<E> {
      * This static field provides a root directory for automation object resources in the bundle resources.
      * It is common for all resources - {@link ModuleType}s, {@link RuleTemplate}s and {@link Rule}s.
      */
-    protected static String PATH = "ESH-INF/automation";
+    protected static final String ROOT_DIRECTORY = "ESH-INF/automation";
 
     /**
      * This field holds a reference to the service instance for internationalization support within the platform.
      */
-    protected I18nProvider i18nProvider;
+    protected TranslationProvider i18nProvider;
 
     /**
      * This field keeps instance of {@link Logger} that is used for logging.
@@ -139,7 +145,6 @@ public abstract class AbstractResourceBundleProvider<E> {
 
     protected List<ProviderChangeListener<E>> listeners;
 
-    @SuppressWarnings("unchecked")
     protected void activate(BundleContext bc) {
         this.bc = bc;
     }
@@ -215,11 +220,11 @@ public abstract class AbstractResourceBundleProvider<E> {
         parsers.remove(parserType);
     }
 
-    protected void setI18nProvider(I18nProvider i18nProvider) {
+    protected void setTranslationProvider(TranslationProvider i18nProvider) {
         this.i18nProvider = i18nProvider;
     }
 
-    protected void removeI18nProvider(I18nProvider i18nProvider) {
+    protected void unsetTranslationProvider(TranslationProvider i18nProvider) {
         this.i18nProvider = null;
     }
 
@@ -390,7 +395,7 @@ public abstract class AbstractResourceBundleProvider<E> {
         return null;
     }
 
-    protected List<ConfigDescriptionParameter> getLocalizedConfigurationDescription(I18nProvider i18nProvider,
+    protected List<ConfigDescriptionParameter> getLocalizedConfigurationDescription(TranslationProvider i18nProvider,
             List<ConfigDescriptionParameter> config, Bundle bundle, String uid, String prefix, Locale locale) {
         List<ConfigDescriptionParameter> configDescriptions = new ArrayList<ConfigDescriptionParameter>();
         if (config != null) {
@@ -401,7 +406,7 @@ public abstract class AbstractResourceBundleProvider<E> {
                 try {
                     uri = new URI(prefix + ":" + uid + ".name");
                 } catch (URISyntaxException e) {
-                    e.printStackTrace();
+                    logger.error("Constructed invalid uri '{}:{}.name'", prefix, uid, e);
                 }
                 String llabel = parameter.getLabel();
                 if (llabel != null) {
@@ -460,10 +465,10 @@ public abstract class AbstractResourceBundleProvider<E> {
         InputStream is = null;
         try {
             is = url.openStream();
-            reader = new InputStreamReader(is);
+            reader = new InputStreamReader(is, StandardCharsets.UTF_8);
             return parser.parse(reader);
         } catch (ParsingException e) {
-            logger.error(e.getLocalizedMessage(), e);
+            logger.error("{}", e.getLocalizedMessage(), e);
         } catch (IOException e) {
             logger.error("Can't read from resource of bundle with ID {}", bundle.getBundleId(), e);
             processAutomationProviderUninstalled(bundle);
@@ -487,29 +492,25 @@ public abstract class AbstractResourceBundleProvider<E> {
     @SuppressWarnings("unchecked")
     protected void addNewProvidedObjects(List<String> newPortfolio, List<String> previousPortfolio,
             Set<E> parsedObjects) {
+        List<ProviderChangeListener<E>> snapshot = null;
+        synchronized (listeners) {
+            snapshot = new LinkedList<ProviderChangeListener<E>>(listeners);
+        }
         for (E parsedObject : parsedObjects) {
             String uid = getUID(parsedObject);
-            if (providedObjectsHolder.get(uid) == null) {
-                if (checkExistence(uid)) {
-                    continue;
-                }
-            } else if (previousPortfolio == null || !previousPortfolio.contains(uid)) {
-                logger.error("{} with UID \"{}\" already exists! Failed to create a second with the same UID!",
-                        parsedObject.getClass().getName(), uid, new IllegalArgumentException());
+            E oldElement = providedObjectsHolder.get(uid);
+            if (oldElement != null && !previousPortfolio.contains(uid)) {
+                logger.warn("{} with UID '{}' already exists! Failed to add a second with the same UID!",
+                        parsedObject.getClass().getName(), uid);
                 continue;
-            }
-            newPortfolio.add(uid);
-            E oldelement = providedObjectsHolder.put(uid, parsedObject);
-            if (listeners != null) {
-                List<ProviderChangeListener<E>> snapshot = null;
-                synchronized (listeners) {
-                    snapshot = new LinkedList<ProviderChangeListener<E>>(listeners);
-                }
+            } else {
+                newPortfolio.add(uid);
+                providedObjectsHolder.put(uid, parsedObject);
                 for (ProviderChangeListener<E> listener : snapshot) {
-                    if (oldelement == null) {
+                    if (oldElement == null) {
                         listener.added((Provider<E>) this, parsedObject);
                     } else {
-                        listener.updated((Provider<E>) this, oldelement, parsedObject);
+                        listener.updated((Provider<E>) this, oldElement, parsedObject);
                     }
                 }
             }
@@ -530,12 +531,6 @@ public abstract class AbstractResourceBundleProvider<E> {
             waitingProviders.remove(bundle);
         }
     }
-
-    /**
-     * @param uid
-     * @return
-     */
-    protected abstract boolean checkExistence(String uid);
 
     /**
      * @param parsedObject

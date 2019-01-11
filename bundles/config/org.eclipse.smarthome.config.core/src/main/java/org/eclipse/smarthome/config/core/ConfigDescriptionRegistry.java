@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.core;
 
@@ -12,10 +17,20 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
+
+import org.eclipse.jdt.annotation.Nullable;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * {@link ConfigDescriptionRegistry} provides access to {@link ConfigDescription}s.
@@ -28,11 +43,16 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * @author Chris Jackson - Added compatibility with multiple ConfigDescriptionProviders. Added Config OptionProvider.
  * @author Thomas Höfer - Added unit
  */
+@Component(immediate = true, service = { ConfigDescriptionRegistry.class })
 public class ConfigDescriptionRegistry {
+
+    private final Logger logger = LoggerFactory.getLogger(ConfigDescriptionRegistry.class);
 
     private final List<ConfigOptionProvider> configOptionProviders = new CopyOnWriteArrayList<>();
     private final List<ConfigDescriptionProvider> configDescriptionProviders = new CopyOnWriteArrayList<>();
+    private final List<ConfigDescriptionAliasProvider> configDescriptionAliasProviders = new CopyOnWriteArrayList<>();
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     protected void addConfigOptionProvider(ConfigOptionProvider configOptionProvider) {
         if (configOptionProvider != null) {
             configOptionProviders.add(configOptionProvider);
@@ -45,6 +65,7 @@ public class ConfigDescriptionRegistry {
         }
     }
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     protected void addConfigDescriptionProvider(ConfigDescriptionProvider configDescriptionProvider) {
         if (configDescriptionProvider != null) {
             configDescriptionProviders.add(configDescriptionProvider);
@@ -54,6 +75,19 @@ public class ConfigDescriptionRegistry {
     protected void removeConfigDescriptionProvider(ConfigDescriptionProvider configDescriptionProvider) {
         if (configDescriptionProvider != null) {
             configDescriptionProviders.remove(configDescriptionProvider);
+        }
+    }
+
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
+    protected void addConfigDescriptionAliasProvider(ConfigDescriptionAliasProvider configDescriptionAliasProvider) {
+        if (configDescriptionAliasProvider != null) {
+            configDescriptionAliasProviders.add(configDescriptionAliasProvider);
+        }
+    }
+
+    protected void removeConfigDescriptionAliasProvider(ConfigDescriptionAliasProvider configDescriptionAliasProvider) {
+        if (configDescriptionAliasProvider != null) {
+            configDescriptionAliasProviders.remove(configDescriptionAliasProvider);
         }
     }
 
@@ -67,8 +101,7 @@ public class ConfigDescriptionRegistry {
      * the binding to ensure that multiple sources (eg static XML and dynamic binding data) do not contain overlapping
      * information.
      *
-     * @param locale
-     *            locale
+     * @param locale locale
      * @return all config descriptions or an empty collection if no config
      *         description exists
      */
@@ -80,7 +113,7 @@ public class ConfigDescriptionRegistry {
             // And for each provider, loop over all their config descriptions
             for (ConfigDescription configDescription : configDescriptionProvider.getConfigDescriptions(locale)) {
                 // See if there already exists a configuration for this URI in the map
-                ConfigDescription configFromMap = configMap.get(configDescription.getURI());
+                ConfigDescription configFromMap = configMap.get(configDescription.getUID());
                 if (configFromMap != null) {
                     // Yes - Merge the groups and parameters
                     List<ConfigDescriptionParameter> parameters = new ArrayList<ConfigDescriptionParameter>();
@@ -92,11 +125,11 @@ public class ConfigDescriptionRegistry {
                     parameterGroups.addAll(configDescription.getParameterGroups());
 
                     // And add the combined configuration to the map
-                    configMap.put(configDescription.getURI(),
-                            new ConfigDescription(configDescription.getURI(), parameters, parameterGroups));
+                    configMap.put(configDescription.getUID(),
+                            new ConfigDescription(configDescription.getUID(), parameters, parameterGroups));
                 } else {
                     // No - Just add the new configuration to the map
-                    configMap.put(configDescription.getURI(), configDescription);
+                    configMap.put(configDescription.getUID(), configDescription);
                 }
             }
         }
@@ -130,18 +163,53 @@ public class ConfigDescriptionRegistry {
      * the binding to ensure that multiple sources (eg static XML and dynamic binding data) do not contain overlapping
      * information.
      *
-     * @param uri
-     *            the URI to which the config description to be returned (must
+     * @param uri the URI to which the config description to be returned (must
      *            not be null)
-     * @param locale
-     *            locale
+     * @param locale locale
      * @return config description or null if no config description exists for
      *         the given name
      */
-    public ConfigDescription getConfigDescription(URI uri, Locale locale) {
+    public @Nullable ConfigDescription getConfigDescription(URI uri, Locale locale) {
         List<ConfigDescriptionParameter> parameters = new ArrayList<ConfigDescriptionParameter>();
         List<ConfigDescriptionParameterGroup> parameterGroups = new ArrayList<ConfigDescriptionParameterGroup>();
 
+        boolean found = false;
+        Set<URI> aliases = getAliases(uri);
+        for (URI alias : aliases) {
+            logger.debug("No config description found for '{}', using alias '{}' instead", uri, alias);
+            found |= fillFromProviders(alias, locale, parameters, parameterGroups);
+        }
+
+        found |= fillFromProviders(uri, locale, parameters, parameterGroups);
+
+        if (found) {
+            List<ConfigDescriptionParameter> parametersWithOptions = new ArrayList<ConfigDescriptionParameter>(
+                    parameters.size());
+            for (ConfigDescriptionParameter parameter : parameters) {
+                parametersWithOptions.add(getConfigOptions(uri, aliases, parameter, locale));
+            }
+
+            // Return the new configuration description
+            return new ConfigDescription(uri, parametersWithOptions, parameterGroups);
+        } else {
+            // Otherwise null
+            return null;
+        }
+    }
+
+    private Set<URI> getAliases(URI original) {
+        Set<URI> ret = new LinkedHashSet<>();
+        for (ConfigDescriptionAliasProvider aliasProvider : configDescriptionAliasProviders) {
+            URI alias = aliasProvider.getAlias(original);
+            if (alias != null) {
+                ret.add(alias);
+            }
+        }
+        return ret;
+    }
+
+    private boolean fillFromProviders(URI uri, Locale locale, List<ConfigDescriptionParameter> parameters,
+            List<ConfigDescriptionParameterGroup> parameterGroups) {
         boolean found = false;
         for (ConfigDescriptionProvider configDescriptionProvider : this.configDescriptionProviders) {
             ConfigDescription config = configDescriptionProvider.getConfigDescription(uri, locale);
@@ -154,32 +222,18 @@ public class ConfigDescriptionRegistry {
                 parameterGroups.addAll(config.getParameterGroups());
             }
         }
-
-        if (found) {
-            List<ConfigDescriptionParameter> parametersWithOptions = new ArrayList<ConfigDescriptionParameter>(
-                    parameters.size());
-            for (ConfigDescriptionParameter parameter : parameters) {
-                parametersWithOptions.add(getConfigOptions(uri, parameter, locale));
-            }
-
-            // Return the new configuration description
-            return new ConfigDescription(uri, parametersWithOptions, parameterGroups);
-        } else {
-            // Otherwise null
-            return null;
-        }
+        return found;
     }
 
     /**
      * Returns a config description for a given URI.
      *
-     * @param uri
-     *            the URI to which the config description to be returned (must
+     * @param uri the URI to which the config description to be returned (must
      *            not be null)
      * @return config description or null if no config description exists for
      *         the given name
      */
-    public ConfigDescription getConfigDescription(URI uri) {
+    public @Nullable ConfigDescription getConfigDescription(URI uri) {
         return getConfigDescription(uri, null);
     }
 
@@ -193,30 +247,26 @@ public class ConfigDescriptionRegistry {
      * the binding to ensure that multiple sources (eg static XML and dynamic binding data) do not contain overlapping
      * information.
      *
-     * @param uri
-     *            the URI to which the options to be returned (must not be null)
-     * @param parameter
-     *            the parameter requiring options to be updated
-     * @param locale
-     *            locale
+     * @param uri the URI to which the options to be returned (must not be null)
+     * @param parameter the parameter requiring options to be updated
+     * @param locale locale
      * @return config description
      */
-    private ConfigDescriptionParameter getConfigOptions(URI uri, ConfigDescriptionParameter parameter, Locale locale) {
+    private ConfigDescriptionParameter getConfigOptions(URI uri, Set<URI> aliases, ConfigDescriptionParameter parameter,
+            Locale locale) {
         List<ParameterOption> options = new ArrayList<ParameterOption>();
 
         // Add all the existing options that may be provided by the initial config description provider
         options.addAll(parameter.getOptions());
 
-        boolean found = false;
-        for (ConfigOptionProvider configOptionProvider : this.configOptionProviders) {
-            Collection<ParameterOption> newOptions = configOptionProvider.getParameterOptions(uri, parameter.getName(),
-                    locale);
+        boolean found = fillFromProviders(uri, parameter, locale, options);
 
-            if (newOptions != null) {
-                found = true;
-
-                // Simply merge the options
-                options.addAll(newOptions);
+        if (!found && aliases != null) {
+            for (URI alias : aliases) {
+                found = fillFromProviders(alias, parameter, locale, options);
+                if (found) {
+                    break;
+                }
             }
         }
 
@@ -227,10 +277,28 @@ public class ConfigDescriptionRegistry {
                     parameter.isReadOnly(), parameter.isMultiple(), parameter.getContext(), parameter.getDefault(),
                     parameter.getLabel(), parameter.getDescription(), options, parameter.getFilterCriteria(),
                     parameter.getGroupName(), parameter.isAdvanced(), parameter.getLimitToOptions(),
-                    parameter.getMultipleLimit(), parameter.getUnit(), parameter.getUnitLabel());
+                    parameter.getMultipleLimit(), parameter.getUnit(), parameter.getUnitLabel(),
+                    parameter.isVerifyable());
         } else {
             // Otherwise return the original parameter
             return parameter;
         }
+    }
+
+    private boolean fillFromProviders(URI alias, ConfigDescriptionParameter parameter, Locale locale,
+            List<ParameterOption> options) {
+        boolean found = false;
+        for (ConfigOptionProvider configOptionProvider : this.configOptionProviders) {
+            Collection<ParameterOption> newOptions = configOptionProvider.getParameterOptions(alias,
+                    parameter.getName(), parameter.getContext(), locale);
+
+            if (newOptions != null) {
+                found = true;
+
+                // Simply merge the options
+                options.addAll(newOptions);
+            }
+        }
+        return found;
     }
 }

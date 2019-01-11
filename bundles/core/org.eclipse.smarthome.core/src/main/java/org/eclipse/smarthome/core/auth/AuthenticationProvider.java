@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.auth;
 
@@ -20,9 +25,17 @@ public interface AuthenticationProvider {
      * Verify given credentials and give back authentication if they are valid.
      *
      * @param credentials User credentials.
-     * @return null if credentials were not valid for this provider, otherwise in case of failed authentication an
-     *         AuthenticationException should be thrown
+     * @return null if credentials were not valid for this provider
+     * @throws AuthenticationException if authentication failed due to credentials mismatch.
      */
-    Authentication authenticate(Credentials credentials);
+    Authentication authenticate(Credentials credentials) throws AuthenticationException;
+
+    /**
+     * Additional method to verify if given authentication provider can handle given type of credentials.
+     *
+     * @param type Type of credentials.
+     * @return True if credentials of given type can be used for authentication attempt with provider.
+     */
+    boolean supports(Class<? extends Credentials> type);
 
 }

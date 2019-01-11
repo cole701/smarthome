@@ -1,25 +1,34 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.ui.classic.internal.render;
 
 import java.io.IOException;
-import java.net.URI;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.smarthome.core.items.Item;
 import org.eclipse.smarthome.core.items.ItemNotFoundException;
 import org.eclipse.smarthome.core.library.types.DecimalType;
 import org.eclipse.smarthome.core.library.types.PercentType;
+import org.eclipse.smarthome.core.library.types.QuantityType;
 import org.eclipse.smarthome.core.types.State;
 import org.eclipse.smarthome.model.sitemap.Widget;
 import org.eclipse.smarthome.ui.classic.internal.WebAppActivator;
@@ -27,7 +36,6 @@ import org.eclipse.smarthome.ui.classic.internal.WebAppConfig;
 import org.eclipse.smarthome.ui.classic.render.RenderException;
 import org.eclipse.smarthome.ui.classic.render.WidgetRenderer;
 import org.eclipse.smarthome.ui.items.ItemUIRegistry;
-import org.osgi.service.component.ComponentContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,7 +47,7 @@ import org.slf4j.LoggerFactory;
  * @author Kai Kreuzer - Initial contribution and API
  *
  */
-abstract public class AbstractWidgetRenderer implements WidgetRenderer {
+public abstract class AbstractWidgetRenderer implements WidgetRenderer {
 
     private final Logger logger = LoggerFactory.getLogger(AbstractWidgetRenderer.class);
 
@@ -54,24 +62,18 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
     protected static final String SNIPPET_LOCATION = "snippets/";
 
     /* a local cache so we do not have to read the snippets over and over again from the bundle */
-    protected static final Map<String, String> snippetCache = new HashMap<String, String>();
+    protected static final Map<String, String> SNIPPET_CACHE = new HashMap<String, String>();
 
-    public void setItemUIRegistry(ItemUIRegistry itemUIRegistry) {
+    protected void setItemUIRegistry(ItemUIRegistry itemUIRegistry) {
         this.itemUIRegistry = itemUIRegistry;
     }
 
-    public void unsetItemUIRegistry(ItemUIRegistry itemUIRegistry) {
+    protected void unsetItemUIRegistry(ItemUIRegistry itemUIRegistry) {
         this.itemUIRegistry = null;
     }
 
     public ItemUIRegistry getItemUIRegistry() {
         return itemUIRegistry;
-    }
-
-    protected void activate(ComponentContext context) {
-    }
-
-    protected void deactivate(ComponentContext context) {
     }
 
     /**
@@ -82,22 +84,22 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
      * @throws RenderException if snippet could not be read
      */
     protected synchronized String getSnippet(String elementType) throws RenderException {
-        elementType = elementType.toLowerCase();
-        String snippet = snippetCache.get(elementType);
+        String lowerCaseElementType = elementType.toLowerCase();
+        String snippet = SNIPPET_CACHE.get(lowerCaseElementType);
         if (snippet == null) {
-            String snippetLocation = SNIPPET_LOCATION + elementType + SNIPPET_EXT;
+            String snippetLocation = SNIPPET_LOCATION + lowerCaseElementType + SNIPPET_EXT;
             URL entry = WebAppActivator.getContext().getBundle().getEntry(snippetLocation);
             if (entry != null) {
                 try {
                     snippet = IOUtils.toString(entry.openStream());
                     if (!config.isHtmlCacheDisabled()) {
-                        snippetCache.put(elementType, snippet);
+                        SNIPPET_CACHE.put(lowerCaseElementType, snippet);
                     }
                 } catch (IOException e) {
-                    logger.warn("Cannot load snippet for element type '{}'", elementType, e);
+                    logger.warn("Cannot load snippet for element type '{}'", lowerCaseElementType, e);
                 }
             } else {
-                throw new RenderException("Cannot find a snippet for element type '" + elementType + "'");
+                throw new RenderException("Cannot find a snippet for element type '" + lowerCaseElementType + "'");
             }
         }
         return snippet;
@@ -110,20 +112,44 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
      * @return the label to use for the widget
      */
     public String getLabel(Widget w) {
+        return getLabel(w, null);
+    }
 
+    /**
+     * Retrieves the label for a widget and formats it for the WebApp.Net framework
+     *
+     * @param w the widget to retrieve the label for
+     * @param preferredValue the value to consider in place of the value between [ and ] if not null
+     * @return the label to use for the widget
+     */
+    public String getLabel(Widget w, String preferredValue) {
         String label = itemUIRegistry.getLabel(w);
         int index = label.indexOf('[');
+        int index2 = label.lastIndexOf(']');
 
-        if (index != -1) {
-            label = "<span style=\"%labelstyle%\" class=\"iLabel\">" + label.substring(0, index) + "</span>"
-                    + label.substring(index);
-            // insert the span between the left and right side of the label, if state section exists
-            label = label.replaceAll("\\[", "<span class=\"iValue\" style=\"%valuestyle%\">").replaceAll("\\]",
-                    "</span>");
+        if (index != -1 && index2 != -1) {
+            label = formatLabel(label.substring(0, index).trim(),
+                    (preferredValue == null) ? label.substring(index + 1, index2) : preferredValue);
         } else {
-            label = "<span style=\"%labelstyle%\" class=\"iLabel\">" + label + "</span>";
+            label = formatLabel(label, null);
         }
 
+        return label;
+    }
+
+    /**
+     * Formats the widget label for the WebApp.Net framework
+     *
+     * @param left the left part of the label
+     * @param right the right part of the label; null if no right part to consider
+     * @return the label to use for the widget
+     */
+    private String formatLabel(String left, String right) {
+        String label = "<span style=\"%labelstyle%\" class=\"iLabel\">" + StringEscapeUtils.escapeHtml(left)
+                + "</span>";
+        if (right != null) {
+            label += "<span class=\"iValue\" style=\"%valuestyle%\">" + StringEscapeUtils.escapeHtml(right) + "</span>";
+        }
         return label;
     }
 
@@ -136,9 +162,9 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
      */
     protected String escapeURLPath(String path) {
         try {
-            return new URI(null, null, path, null).toString();
-        } catch (URISyntaxException use) {
-            logger.warn("Cannot escape path '{}' in URL. Returning unmodified path.", path);
+            return URLEncoder.encode(path, "UTF-8");
+        } catch (UnsupportedEncodingException use) {
+            logger.warn("Cannot escape string '{}'. Returning unmodified string.", path);
             return path;
         }
     }
@@ -158,16 +184,16 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
         if (color != null) {
             style = "color:" + color;
         }
-        snippet = StringUtils.replace(snippet, "%labelstyle%", style);
+        String ret = StringUtils.replace(snippet, "%labelstyle%", style);
 
         style = "";
         color = itemUIRegistry.getValueColor(w);
         if (color != null) {
             style = "color:" + color;
         }
-        snippet = StringUtils.replace(snippet, "%valuestyle%", style);
+        ret = StringUtils.replace(ret, "%valuestyle%", style);
 
-        return snippet;
+        return ret;
     }
 
     protected String getFormat() {
@@ -217,4 +243,21 @@ abstract public class AbstractWidgetRenderer implements WidgetRenderer {
         this.config = config;
     }
 
+    protected String getUnitForWidget(Widget widget) {
+        return itemUIRegistry.getUnitForWidget(widget);
+    }
+
+    protected State convertStateToLabelUnit(QuantityType<?> state, String label) {
+        return itemUIRegistry.convertStateToLabelUnit(state, label);
+    }
+
+    protected boolean isValidURL(String url) {
+        if (url != null && !url.isEmpty()) {
+            try {
+                return new URL(url).toURI() != null ? true : false;
+            } catch (MalformedURLException | URISyntaxException ex) {
+            }
+        }
+        return false;
+    }
 }

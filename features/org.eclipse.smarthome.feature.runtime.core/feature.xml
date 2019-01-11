@@ -1,17 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
 
-    Copyright (c) 2014-2017 by the respective copyright holders.
-    All rights reserved. This program and the accompanying materials
-    are made available under the terms of the Eclipse Public License v1.0
-    which accompanies this distribution, and is available at
-    http://www.eclipse.org/legal/epl-v10.html
+	Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+
+	See the NOTICE file(s) distributed with this work for additional
+	information regarding copyright ownership.
+
+	This program and the accompanying materials are made available under the
+	terms of the Eclipse Public License 2.0 which is available at
+	http://www.eclipse.org/legal/epl-2.0
+
+	SPDX-License-Identifier: EPL-2.0
 
 -->
 <feature
       id="org.eclipse.smarthome.feature.runtime.core"
       label="Eclipse SmartHome Core"
-      version="0.9.0.qualifier"
+      version="0.11.0.qualifier"
       provider-name="Eclipse.org/SmartHome">
 
    <description>
@@ -19,7 +24,7 @@
    </description>
 
    <copyright>
-      Copyright (C) 2014-2016 the respective copyright holders
+      Copyright (C) 2014-2018 the respective copyright holders
    </copyright>
 
    <license url="%licenseURL">
@@ -28,6 +33,13 @@
 
    <plugin
          id="org.eclipse.smarthome.auth.jaas"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.smarthome.auth.oauth2client"
          download-size="0"
          install-size="0"
          version="0.0.0"
@@ -111,13 +123,6 @@
          unpack="false"/>
 
    <plugin
-         id="org.eclipse.smarthome.core.autoupdate"
-         download-size="0"
-         install-size="0"
-         version="0.0.0"
-         unpack="false"/>
-
-   <plugin
          id="org.eclipse.smarthome.core.persistence"
          download-size="0"
          install-size="0"
@@ -126,6 +131,13 @@
 
    <plugin
          id="org.eclipse.smarthome.core.thing"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.smarthome.core.semantics"
          download-size="0"
          install-size="0"
          version="0.0.0"
@@ -153,6 +165,34 @@
          unpack="false"/>
 
    <plugin
+         id="org.eclipse.smarthome.config.discovery.mdns"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.smarthome.io.http"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.smarthome.io.http.auth"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.smarthome.io.http.auth.basic"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
          id="org.eclipse.smarthome.io.transport.mqtt"
          download-size="0"
          install-size="0"
@@ -160,7 +200,56 @@
          unpack="false"/>
 
    <plugin
+         id="org.eclipse.smarthome.io.transport.serial"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.smarthome.io.transport.serial.javacomm"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.smarthome.io.transport.serial.rxtx"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.smarthome.io.transport.serial.rxtx.rfc2217"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.smarthome.config.discovery.usbserial"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.smarthome.config.discovery.usbserial.linuxsysfs"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
          id="org.eclipse.smarthome.config.xml"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.smarthome.config.serial"
          download-size="0"
          install-size="0"
          version="0.0.0"
@@ -223,6 +312,13 @@
          unpack="false"/>
 
    <plugin
+         id="org.eclipse.smarthome.config.discovery.upnp"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
          id="org.eclipse.smarthome.core.id"
          download-size="0"
          install-size="0"
@@ -252,6 +348,13 @@
 
    <plugin
          id="org.eclipse.smarthome.core.voice"
+         download-size="0"
+         install-size="0"
+         version="0.0.0"
+         unpack="false"/>
+
+   <plugin
+         id="org.eclipse.smarthome.io.mqttembeddedbroker"
          download-size="0"
          install-size="0"
          version="0.0.0"

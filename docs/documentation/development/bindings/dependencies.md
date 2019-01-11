@@ -17,34 +17,44 @@ When implementing a binding, you should make sure that you do not introduce too 
  - org.eclipse.smarthome.core.thing.binding.builder  
  - org.eclipse.smarthome.core.thing.type  
  - org.eclipse.smarthome.core.types  
+ - org.eclipse.smarthome.core.util  
  
 Depending on the kind of communication that you need to implement, you can optionally also add any exported packages from these bundles:
 
  - org.eclipse.smarthome.config.discovery
  - org.eclipse.smarthome.io.transport.mdns
  - org.eclipse.smarthome.io.transport.mqtt
+ - org.eclipse.smarthome.io.transport.serial
  - org.eclipse.smarthome.io.transport.upnp
  
 ## Optional Bundles
 
 You might also have the need to use other libraries for specific use cases like XML processing etc. In order to not have every binding use a different library, the following packages are available by default: 
 
-### For XML processing  
+### For XML Processing  
  - com.thoughtworks.xstream  
  - com.thoughtworks.xstream.annotations  
  - com.thoughtworks.xstream.converters  
  - com.thoughtworks.xstream.io  
  - com.thoughtworks.xstream.io.xml  
 
-### For JSON processing  
+### For JSON Processing  
  - com.google.gson.*  
  
-### For HTTP operations  
+### For HTTP Operations  
  - org.eclipse.jetty.client.*  
  - org.eclipse.jetty.client.api.*  
  - org.eclipse.jetty.http.*  
  - org.eclipse.jetty.util.*  
  
+Note: HttpClient instances should be obtained by the handler factory through the `HttpClientFactory` service and unless there are specific configuration requirements, the shared instance should be used.
+ 
+### For Web Socket Operations  
+ - org.eclipse.jetty.websocket.client  
+ - org.eclipse.jetty.websocket.api
+ 
+Note: WebSocketClient instances should be obtained by the handler factory through the `WebSocketClientFactory` service and unless there are specific configuration requirements, the shared instance should be used.
+
 ## 3rd Party Libraries
 
 If you want your binding to rely on a custom library that might not even be an OSGi bundle, you can embed it in your bundle as a jar file following these steps: 
@@ -59,5 +69,4 @@ If you want your binding to rely on a custom library that might not even be an O
       lib/library.jar```
 	  
 Keep in mind that if you want to use third party libraries they have to be compatible with the [list of licenses approved for use by third-party code redistributed by Eclipse projects](https://eclipse.org/legal/eplfaq.php#3RDPARTY).  
-Every bundle must contain an [about.html](https://eclipse.org/legal/epl/about.php) file, listing the 3rd party libraries and their licenses.
-For additional information check the [Guide to the Legal Documentation](https://www.eclipse.org/legal/guidetolegaldoc2.php).  
+Every bundle must contain an [NOTICE](https://www.eclipse.org/projects/handbook/#legaldoc) file, listing the 3rd party libraries and their licenses.

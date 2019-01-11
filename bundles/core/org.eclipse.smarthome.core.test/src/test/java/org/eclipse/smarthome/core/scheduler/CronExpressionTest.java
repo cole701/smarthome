@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.scheduler;
 
@@ -11,12 +16,20 @@ import static org.junit.Assert.assertEquals;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
+import java.util.TimeZone;
 
+import org.junit.Assert;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class CronExpressionTest {
+
+    private final Logger logger = LoggerFactory.getLogger(CronExpressionTest.class);
 
     @Test(expected = ParseException.class)
     public void garbageString() throws ParseException {
@@ -25,7 +38,7 @@ public class CronExpressionTest {
 
     @Test(expected = IllegalArgumentException.class)
     public void dayOfWeekAndMonth() throws ParseException {
-        new CronExpression("* * * 1 * 1");
+        new CronExpression("* * * ? * ?");
     }
 
     @Test
@@ -71,26 +84,74 @@ public class CronExpressionTest {
     }
 
     @Test
-    public void runForever() throws ParseException, InterruptedException {
+    public void findNext() throws ParseException {
+        final List<String> expressions = Arrays.asList(new String[] { //
+                "* * * * * ?", //
+                "* * * ? * *", //
+                "0 * * ? * *", //
+                "0 0 * ? * *", //
+                "0 0 0 ? * *", //
+                "0 15 07 * * ?", //
+                "0 15 07 ? * MON,TUE,WED,THU,FRI,SAT,SUN" //
+        });
 
-        final CronExpression expression;
-        expression = new CronExpression("* * * * * ?");
-
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-
-        Date nextDate = expression.getTimeAfter(Calendar.getInstance().getTime());
-        int counter = 1;
-
-        while (nextDate != null && counter <= 150) {
-            System.out.println("value " + counter + " is " + sdf.format(nextDate));
+        for (final String expr : expressions) {
             Calendar cal = Calendar.getInstance();
-            cal.setTime(nextDate);
-            cal.add(Calendar.MILLISECOND, 1);
-            nextDate = cal.getTime();
-            nextDate = expression.getTimeAfter(nextDate);
-            counter++;
+            findNextWorker(expr, cal);
+        }
+    }
+
+    @Test
+    public void findNextSpecial() throws ParseException {
+        // 2018-03-22 10:12:22.514 AM, Europe/Berlin
+        // DST starts on 2018-03-25 at 02:00 (2 am) local time, when clocks are set ahead 1 hour to 03:00 (3 am).
+        findNextWorker("0 0 * ? * *", getCalendarInstance("Europe/Berlin", 1521709942514L));
+    }
+
+    private void findNextWorker(final String expr, final Calendar cal) throws ParseException {
+        final SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
+        final int TRIES = 150;
+        boolean trace = false;
+
+        logger.info("Test cron expression: {}", expr);
+        final CronExpression cronExpression;
+        try {
+            cronExpression = new CronExpression(expr);
+        } catch (final IllegalArgumentException | ParseException ex) {
+            logger.error("Error creating a new ConExpression", ex);
+            throw ex;
         }
 
+        Date curDate = cal.getTime();
+
+        for (int i = 0; i < TRIES; ++i) {
+            if (trace) {
+                logger.info("Try to get time after: {}", sdf.format(curDate));
+            }
+            final Date nextDate = cronExpression.getTimeAfter(curDate);
+            if (nextDate == null) {
+                final String msg = String.format("Cannot find a time after '%s' for expression '%s'",
+                        sdf.format(curDate), cronExpression.getExpression());
+                logger.error("{}", msg);
+                Assert.fail(msg);
+            } else {
+                if (trace) {
+                    logger.info("Got: {}", sdf.format(nextDate));
+                }
+            }
+
+            cal.setTime(nextDate);
+            // Add some offset
+            cal.add(Calendar.MINUTE, 1);
+            cal.add(Calendar.SECOND, 1);
+            curDate = cal.getTime();
+        }
+    }
+
+    private static Calendar getCalendarInstance(final String timeZone, final long ms) {
+        final Calendar cal = Calendar.getInstance(TimeZone.getTimeZone(timeZone));
+        cal.setTimeInMillis(ms);
+        return cal;
     }
 
 }

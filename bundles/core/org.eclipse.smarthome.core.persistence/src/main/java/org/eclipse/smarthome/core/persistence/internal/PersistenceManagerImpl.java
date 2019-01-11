@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.persistence.internal;
 
@@ -18,6 +23,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
 
+import org.eclipse.smarthome.core.common.SafeCaller;
 import org.eclipse.smarthome.core.items.GenericItem;
 import org.eclipse.smarthome.core.items.GroupItem;
 import org.eclipse.smarthome.core.items.Item;
@@ -43,6 +49,10 @@ import org.eclipse.smarthome.core.scheduler.ExpressionThreadPoolManager;
 import org.eclipse.smarthome.core.scheduler.ExpressionThreadPoolManager.ExpressionThreadPoolExecutor;
 import org.eclipse.smarthome.core.types.State;
 import org.eclipse.smarthome.core.types.UnDefType;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -52,14 +62,17 @@ import org.slf4j.LoggerFactory;
  * @author Kai Kreuzer - Initial contribution and API
  * @author Markus Rathgeb - Separation of persistence core and model, drop Quartz usage.
  */
+@Component(service = PersistenceManager.class, immediate = true)
 public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryChangeListener, StateChangeListener {
 
-    private final Logger logger = LoggerFactory.getLogger(PersistenceManager.class);
+    private final Logger logger = LoggerFactory.getLogger(PersistenceManagerImpl.class);
 
     // the scheduler used for timer events
     private ExpressionThreadPoolExecutor scheduler;
 
     private ItemRegistry itemRegistry;
+    private SafeCaller safeCaller;
+    private volatile boolean started = false;
 
     final Map<String, PersistenceService> persistenceServices = new HashMap<>();
     final Map<String, PersistenceServiceConfiguration> persistenceServiceConfigs = new HashMap<>();
@@ -70,29 +83,45 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
 
     protected void activate() {
         scheduler = ExpressionThreadPoolManager.getExpressionScheduledPool("persist");
+        allItemsChanged(null);
+        started = true;
+        itemRegistry.addRegistryChangeListener(this);
     }
 
     protected void deactivate() {
-        scheduler.shutdown();
+        itemRegistry.removeRegistryChangeListener(this);
+        started = false;
+        removeTimers();
+        removeItemStateChangeListeners();
         scheduler = null;
     }
 
+    @Reference
     protected void setItemRegistry(ItemRegistry itemRegistry) {
         this.itemRegistry = itemRegistry;
-        itemRegistry.addRegistryChangeListener(this);
-        allItemsChanged(null);
     }
 
     protected void unsetItemRegistry(ItemRegistry itemRegistry) {
-        itemRegistry.removeRegistryChangeListener(this);
         this.itemRegistry = null;
     }
 
+    @Reference
+    protected void setSafeCaller(SafeCaller safeCaller) {
+        this.safeCaller = safeCaller;
+    }
+
+    protected void unsetSafeCaller(SafeCaller safeCaller) {
+        this.safeCaller = null;
+    }
+
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     protected void addPersistenceService(PersistenceService persistenceService) {
         logger.debug("Initializing {} persistence service.", persistenceService.getId());
         persistenceServices.put(persistenceService.getId(), persistenceService);
-        stopEventHandling(persistenceService.getId());
-        startEventHandling(persistenceService.getId());
+        if (started) {
+            stopEventHandling(persistenceService.getId());
+            startEventHandling(persistenceService.getId());
+        }
     }
 
     protected void removePersistenceService(PersistenceService persistenceService) {
@@ -234,6 +263,7 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
      *
      * @param item the item to restore the state for
      */
+    @SuppressWarnings("null")
     private void initialize(Item item) {
         // get the last persisted state from the persistence service if no state is yet set
         if (item.getState().equals(UnDefType.NULL) && item instanceof GenericItem) {
@@ -247,20 +277,30 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
                             if (service instanceof QueryablePersistenceService) {
                                 QueryablePersistenceService queryService = (QueryablePersistenceService) service;
                                 FilterCriteria filter = new FilterCriteria().setItemName(item.getName()).setPageSize(1);
-                                Iterable<HistoricItem> result = queryService.query(filter);
-                                Iterator<HistoricItem> it = result.iterator();
-                                if (it.hasNext()) {
-                                    HistoricItem historicItem = it.next();
-                                    GenericItem genericItem = (GenericItem) item;
-                                    genericItem.removeStateChangeListener(this);
-                                    genericItem.setState(historicItem.getState());
-                                    genericItem.addStateChangeListener(this);
-                                    logger.debug("Restored item state from '{}' for item '{}' -> '{}'",
-                                            new Object[] {
-                                                    DateFormat.getDateTimeInstance()
-                                                            .format(historicItem.getTimestamp()),
-                                                    item.getName(), historicItem.getState().toString() });
-                                    return;
+                                Iterable<HistoricItem> result = safeCaller
+                                        .create(queryService, QueryablePersistenceService.class).onTimeout(() -> {
+                                            logger.warn("Querying persistence service '{}' takes more than {}ms.",
+                                                    queryService.getId(), SafeCaller.DEFAULT_TIMEOUT);
+                                        }).onException(e -> {
+                                            logger.error(
+                                                    "Exception occurred while querying persistence service '{}': {}",
+                                                    queryService.getId(), e.getMessage(), e);
+                                        }).build().query(filter);
+                                if (result != null) {
+                                    Iterator<HistoricItem> it = result.iterator();
+                                    if (it.hasNext()) {
+                                        HistoricItem historicItem = it.next();
+                                        GenericItem genericItem = (GenericItem) item;
+                                        genericItem.removeStateChangeListener(this);
+                                        genericItem.setState(historicItem.getState());
+                                        genericItem.addStateChangeListener(this);
+                                        logger.debug("Restored item state from '{}' for item '{}' -> '{}'",
+                                                new Object[] {
+                                                        DateFormat.getDateTimeInstance()
+                                                                .format(historicItem.getTimestamp()),
+                                                        item.getName(), historicItem.getState().toString() });
+                                        return;
+                                    }
                                 }
                             } else if (service != null) {
                                 logger.warn(
@@ -274,13 +314,21 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
         }
     }
 
+    private void removeItemStateChangeListeners() {
+        for (Item item : itemRegistry.getAll()) {
+            if (item instanceof GenericItem) {
+                ((GenericItem) item).removeStateChangeListener(this);
+            }
+        }
+    }
+
     /**
      * Creates and schedules a new quartz-job.
      *
-     * @param modelName the name of the model
+     * @param dbId the database id used by the persistence service
      * @param strategies a collection of strategies
      */
-    private void createTimers(final String modelName, List<SimpleStrategy> strategies) {
+    private void createTimers(final String dbId, List<SimpleStrategy> strategies) {
         for (SimpleStrategy strategy : strategies) {
             if (strategy instanceof SimpleCronStrategy) {
                 SimpleCronStrategy cronStrategy = (SimpleCronStrategy) strategy;
@@ -293,13 +341,13 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
                     continue;
                 }
 
-                final PersistItemsJob job = new PersistItemsJob(this, modelName, cronStrategy.getName());
-                if (persistenceJobs.containsKey(modelName)) {
-                    persistenceJobs.get(modelName).add(job);
+                final PersistItemsJob job = new PersistItemsJob(this, dbId, cronStrategy.getName());
+                if (persistenceJobs.containsKey(dbId)) {
+                    persistenceJobs.get(dbId).add(job);
                 } else {
                     final Set<Runnable> jobs = new HashSet<>();
                     jobs.add(job);
-                    persistenceJobs.put(modelName, jobs);
+                    persistenceJobs.put(dbId, jobs);
                 }
 
                 scheduler.schedule(job, expression);
@@ -309,34 +357,37 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
     }
 
     /**
-     * Delete all {@link Job}s of the group <code>persistModelName</code>
+     * Delete all {@link Job}s of the group <code>dbId</code>
      *
      * @throws SchedulerException if there is an internal Scheduler error.
      */
-    private void removeTimers(String persistModelName) {
-        if (!persistenceJobs.containsKey(persistModelName)) {
+    private void removeTimers(String dbId) {
+        if (!persistenceJobs.containsKey(dbId)) {
             return;
         }
-        for (final Runnable job : persistenceJobs.get(persistModelName)) {
+        for (final Runnable job : persistenceJobs.get(dbId)) {
             boolean success = scheduler.remove(job);
             if (success) {
-                logger.debug("Removed scheduled cron job for dbId '{}'", persistModelName);
+                logger.debug("Removed scheduled cron job for persistence service '{}'", dbId);
             } else {
-                logger.warn("Failed to delete cron job for dbId '{}'", persistModelName);
+                logger.warn("Failed to delete cron job for persistence service '{}'", dbId);
             }
         }
-        persistenceJobs.remove(persistModelName);
+        persistenceJobs.remove(dbId);
     }
 
-    /*
-     * PersistenceManager
-     */
+    private void removeTimers() {
+        Set<String> dbIds = new HashSet<>(persistenceJobs.keySet());
+        for (String dbId : dbIds) {
+            removeTimers(dbId);
+        }
+    }
 
     @Override
     public void addConfig(final String dbId, final PersistenceServiceConfiguration config) {
         synchronized (persistenceServiceConfigs) {
             this.persistenceServiceConfigs.put(dbId, config);
-            if (itemRegistry != null && persistenceServices.containsKey(dbId)) {
+            if (persistenceServices.containsKey(dbId)) {
                 startEventHandling(dbId);
             }
         }
@@ -350,20 +401,17 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
         }
     }
 
-    @Override
-    public void startEventHandling(final String dbId) {
+    private void startEventHandling(final String dbId) {
         synchronized (persistenceServiceConfigs) {
             final PersistenceServiceConfiguration config = persistenceServiceConfigs.get(dbId);
             if (config == null) {
                 return;
             }
 
-            if (itemRegistry != null) {
-                for (SimpleItemConfiguration itemConfig : config.getConfigs()) {
-                    if (hasStrategy(dbId, itemConfig, SimpleStrategy.Globals.RESTORE)) {
-                        for (Item item : getAllItems(itemConfig)) {
-                            initialize(item);
-                        }
+            for (SimpleItemConfiguration itemConfig : config.getConfigs()) {
+                if (hasStrategy(dbId, itemConfig, SimpleStrategy.Globals.RESTORE)) {
+                    for (Item item : getAllItems(itemConfig)) {
+                        initialize(item);
                     }
                 }
             }
@@ -371,16 +419,11 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
         }
     }
 
-    @Override
-    public void stopEventHandling(String modelName) {
+    private void stopEventHandling(String dbId) {
         synchronized (persistenceServiceConfigs) {
-            removeTimers(modelName);
+            removeTimers(dbId);
         }
     }
-
-    /*
-     * ItemRegistryChangeListener
-     */
 
     @Override
     public void allItemsChanged(Collection<String> oldItemNames) {
@@ -408,7 +451,8 @@ public class PersistenceManagerImpl implements PersistenceManager, ItemRegistryC
 
     @Override
     public void updated(Item oldItem, Item item) {
-        // not needed here
+        removed(oldItem);
+        added(item);
     }
 
     /*

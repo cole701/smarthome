@@ -1,16 +1,13 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Eclipse SmartHome Automation Integration Test
-Bundle-SymbolicName: org.eclipse.smarthome.automation.integration.test;singleton:=true
-Bundle-Version: 0.9.0.qualifier
-Bundle-Vendor: Eclipse/SmartHome
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
-Import-Package: com.google.common.collect,
- groovy.lang,
- org.codehaus.groovy.reflection,
- org.codehaus.groovy.runtime,
- org.codehaus.groovy.runtime.callsite,
- org.codehaus.groovy.runtime.typehandling,
+Bundle-SymbolicName: org.eclipse.smarthome.automation.integration.test;s
+ ingleton:=true
+Bundle-Vendor: Eclipse.org/SmartHome
+Bundle-Version: 0.11.0.qualifier
+Import-Package: 
+ org.eclipse.jdt.annotation;resolution:=optional,
  org.eclipse.smarthome.automation,
  org.eclipse.smarthome.automation.events,
  org.eclipse.smarthome.automation.handler,
@@ -18,7 +15,6 @@ Import-Package: com.google.common.collect,
  org.eclipse.smarthome.automation.template,
  org.eclipse.smarthome.automation.type,
  org.eclipse.smarthome.config.core,
- org.eclipse.smarthome.core.autoupdate,
  org.eclipse.smarthome.core.common.registry,
  org.eclipse.smarthome.core.events,
  org.eclipse.smarthome.core.items,
@@ -28,18 +24,20 @@ Import-Package: com.google.common.collect,
  org.eclipse.smarthome.core.storage,
  org.eclipse.smarthome.core.types,
  org.eclipse.smarthome.test,
+ org.eclipse.smarthome.test.java,
  org.eclipse.smarthome.test.storage,
  org.hamcrest;core=split,
  org.osgi.framework,
  org.osgi.service.event,
  org.osgi.service.packageadmin,
  org.osgi.util.tracker,
- org.slf4j;version="1.7.2"
-Require-Bundle: org.junit;bundle-version="4.0.0",
+ org.slf4j
+Require-Bundle: 
  org.eclipse.smarthome.automation.api,
  org.eclipse.smarthome.automation.core,
  org.eclipse.smarthome.automation.module.core,
  org.eclipse.smarthome.automation.parser.gson,
  org.eclipse.smarthome.automation.providers,
- org.eclipse.smarthome.automation.sample.extension.json,
- org.eclipse.smarthome.io.console
+ org.eclipse.smarthome.io.console,
+ org.junit
+Automatic-Module-Name: org.eclipse.smarthome.automation.integration.test

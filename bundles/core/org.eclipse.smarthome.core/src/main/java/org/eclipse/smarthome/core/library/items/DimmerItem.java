@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.library.items;
 
@@ -11,12 +16,12 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.smarthome.core.library.CoreItemFactory;
 import org.eclipse.smarthome.core.library.types.IncreaseDecreaseType;
 import org.eclipse.smarthome.core.library.types.OnOffType;
 import org.eclipse.smarthome.core.library.types.PercentType;
 import org.eclipse.smarthome.core.types.Command;
-import org.eclipse.smarthome.core.types.Convertible;
 import org.eclipse.smarthome.core.types.RefreshType;
 import org.eclipse.smarthome.core.types.State;
 import org.eclipse.smarthome.core.types.UnDefType;
@@ -29,6 +34,7 @@ import org.eclipse.smarthome.core.types.UnDefType;
  * @author Markus Rathgeb - Support more types for getStateAs
  *
  */
+@NonNullByDefault
 public class DimmerItem extends SwitchItem {
 
     private static List<Class<? extends State>> acceptedDataTypes = new ArrayList<Class<? extends State>>();
@@ -67,15 +73,19 @@ public class DimmerItem extends SwitchItem {
         return Collections.unmodifiableList(acceptedCommandTypes);
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setState(State state) {
-        if (state instanceof Convertible) {
-            state = ((Convertible) state).as(PercentType.class);
+        if (isAcceptedState(acceptedDataTypes, state)) {
+            // try conversion
+            State convertedState = state.as(PercentType.class);
+            if (convertedState != null) {
+                applyState(convertedState);
+            } else {
+                applyState(state);
+            }
+        } else {
+            logSetTypeError(state);
         }
-        applyState(state);
     }
 
 }

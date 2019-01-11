@@ -1,15 +1,21 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.extensionservice.marketplace.internal;
 
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -17,7 +23,6 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.smarthome.config.xml.util.XmlDocumentReader;
-import org.eclipse.smarthome.core.common.ThreadPoolManager;
 import org.eclipse.smarthome.extensionservice.marketplace.internal.model.Marketplace;
 import org.eclipse.smarthome.extensionservice.marketplace.internal.model.Node;
 import org.slf4j.Logger;
@@ -37,7 +42,7 @@ public class MarketplaceProxy {
 
     private final Logger logger = LoggerFactory.getLogger(MarketplaceProxy.class);
 
-    private final static String MP_URL = "https://marketplace.eclipse.org/taxonomy/term/4988%2C4396/api/p?client=org.eclipse.smarthome";
+    private static final String MP_URL = "https://marketplace.eclipse.org/taxonomy/term/4988%2C4396/api/p?client=org.eclipse.smarthome";
     private final URL url;
     private Node[] cachedNodes = null;
     private long refresh_interval = 3600;
@@ -64,33 +69,27 @@ public class MarketplaceProxy {
      *
      * @return list of marketplace nodes
      */
-    public synchronized List<Node> getNodes() {
-        if (cachedNodes == null) {
-            XmlDocumentReader<Marketplace> reader = new MarketplaceXMLReader();
-            try {
-                Marketplace result = reader.readFromXML(url);
-                cachedNodes = result.categories[0].nodes;
-            } catch (Exception e) {
-                if (cachedNodes == null) {
-                    logger.warn("Failed downloading Marketplace entries: {}", e.getMessage());
-                    logger.warn("Retrying again in a minute");
-                    ThreadPoolManager.getScheduledPool("marketplace").schedule(() -> refresh(), retry_delay,
-                            TimeUnit.SECONDS);
-                } else {
-                    logger.debug("Cannot access IoT Marketplace - will continue to use cached results: {}",
-                            e.getMessage());
-                }
-            }
-        }
-        return Arrays.asList(cachedNodes);
+    public List<Node> getNodes() {
+        return cachedNodes != null ? Arrays.asList(cachedNodes) : Collections.emptyList();
     }
 
     /**
      * Refreshes the local content by synchronizing with the remote marketplace.
      */
     public synchronized void refresh() {
-        cachedNodes = null;
-        getNodes();
+        XmlDocumentReader<Marketplace> reader = new MarketplaceXMLReader();
+        try {
+            Marketplace result = reader.readFromXML(url);
+            cachedNodes = result.categories[0].nodes;
+        } catch (Exception e) {
+            if (cachedNodes == null) {
+                logger.warn("Failed downloading Marketplace entries: {}", e.getMessage());
+                logger.warn("Retrying again in a minute");
+                this.executorService.schedule(() -> refresh(), retry_delay, TimeUnit.SECONDS);
+            } else {
+                logger.debug("Cannot access IoT Marketplace - will continue to use cached results: {}", e.getMessage());
+            }
+        }
     }
 
     public void dispose() {

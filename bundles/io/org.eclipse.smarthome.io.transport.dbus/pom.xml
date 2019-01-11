@@ -5,19 +5,14 @@
   <parent>
     <groupId>org.eclipse.smarthome.bundles</groupId>
     <artifactId>io</artifactId>
-    <version>0.9.0-SNAPSHOT</version>
+    <version>0.11.0-SNAPSHOT</version>
   </parent>
-
-  <properties>
-    <bundle.symbolicName>org.eclipse.smarthome.io.transport.dbus</bundle.symbolicName>
-    <bundle.namespace>org.eclipse.smarthome.io.transport.dbus</bundle.namespace>
-  </properties>
 
   <groupId>org.eclipse.smarthome.io</groupId>
   <artifactId>org.eclipse.smarthome.io.transport.dbus</artifactId>
 
-  <name>Eclipse SmartHome DBus Transport</name>
-
   <packaging>eclipse-plugin</packaging>
+
+  <name>Eclipse SmartHome DBus Transport</name>
 
 </project>

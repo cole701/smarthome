@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.model.script.scoping;
 
@@ -14,6 +19,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.smarthome.core.library.unit.ImperialUnits;
+import org.eclipse.smarthome.core.library.unit.MetricPrefix;
+import org.eclipse.smarthome.core.library.unit.SIUnits;
+import org.eclipse.smarthome.core.thing.binding.ThingActions;
 import org.eclipse.smarthome.model.persistence.extensions.PersistenceExtensions;
 import org.eclipse.smarthome.model.script.actions.Audio;
 import org.eclipse.smarthome.model.script.actions.BusEvent;
@@ -22,8 +31,10 @@ import org.eclipse.smarthome.model.script.actions.HTTP;
 import org.eclipse.smarthome.model.script.actions.LogAction;
 import org.eclipse.smarthome.model.script.actions.Ping;
 import org.eclipse.smarthome.model.script.actions.ScriptExecution;
+import org.eclipse.smarthome.model.script.actions.Things;
 import org.eclipse.smarthome.model.script.actions.Voice;
 import org.eclipse.smarthome.model.script.engine.IActionServiceProvider;
+import org.eclipse.smarthome.model.script.engine.IThingActionsProvider;
 import org.eclipse.smarthome.model.script.engine.action.ActionService;
 import org.eclipse.smarthome.model.script.lib.NumberExtensions;
 import org.eclipse.xtext.xbase.scoping.batch.ImplicitlyImportedFeatures;
@@ -51,6 +62,9 @@ public class ScriptImplicitlyImportedTypes extends ImplicitlyImportedFeatures {
     @Inject
     IActionServiceProvider actionServiceProvider;
 
+    @Inject
+    IThingActionsProvider thingActionsProvider;
+
     @Override
     protected List<Class<?>> getExtensionClasses() {
         List<Class<?>> result = super.getExtensionClasses();
@@ -70,6 +84,9 @@ public class ScriptImplicitlyImportedTypes extends ImplicitlyImportedFeatures {
         result.add(Ping.class);
         result.add(Audio.class);
         result.add(Voice.class);
+        result.add(Things.class);
+
+        result.addAll(getActionClasses());
         return result;
     }
 
@@ -84,6 +101,11 @@ public class ScriptImplicitlyImportedTypes extends ImplicitlyImportedFeatures {
         result.add(LogAction.class);
         result.add(Audio.class);
         result.add(Voice.class);
+        result.add(Things.class);
+
+        result.add(ImperialUnits.class);
+        result.add(SIUnits.class);
+        result.add(MetricPrefix.class);
 
         // jodatime static functions
         result.add(DateTime.class);
@@ -94,14 +116,23 @@ public class ScriptImplicitlyImportedTypes extends ImplicitlyImportedFeatures {
 
     protected List<Class<?>> getActionClasses() {
 
+        List<Class<?>> localActionClasses = new ArrayList<Class<?>>();
+
         List<ActionService> services = actionServiceProvider.get();
         if (services != null) {
-            List<Class<?>> localActionClasses = new ArrayList<Class<?>>();
             for (ActionService actionService : services) {
                 localActionClasses.add(actionService.getActionClass());
             }
-            actionClasses = localActionClasses;
         }
+
+        List<ThingActions> actions = thingActionsProvider.get();
+        if (actions != null) {
+            for (ThingActions thingActions : actions) {
+                localActionClasses.add(thingActions.getClass());
+            }
+        }
+
+        actionClasses = localActionClasses;
         return actionClasses;
     }
 }

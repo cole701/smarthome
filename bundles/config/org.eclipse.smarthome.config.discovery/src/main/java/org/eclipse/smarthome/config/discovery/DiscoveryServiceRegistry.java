@@ -1,14 +1,21 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.discovery;
 
 import java.util.List;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
 
 /**
@@ -26,6 +33,7 @@ import org.eclipse.smarthome.core.thing.ThingTypeUID;
  * @see DiscoveryService
  * @see DiscoveryListener
  */
+@NonNullByDefault
 public interface DiscoveryServiceRegistry {
 
     /**
@@ -34,11 +42,9 @@ public interface DiscoveryServiceRegistry {
      * Returns {@code true}, if at least one {@link DiscoveryService} could be found and forced to start a discovery,
      * otherwise {@code false}. If the discovery process has already been started before, {@code true} is returned.
      *
-     * @param thingTypeUID
-     *            the Thing type UID pointing to collection of discovery
+     * @param thingTypeUID the Thing type UID pointing to collection of discovery
      *            services to be forced to start a discovery
-     * @param listener
-     *            a callback to inform about errors or termination, can be null.
+     * @param listener a callback to inform about errors or termination, can be null.
      *            If more than one discovery service is started, the {@link ScanListener#onFinished()} callback is
      *            called after all
      *            discovery services finished their scan. If one discovery
@@ -48,7 +54,7 @@ public interface DiscoveryServiceRegistry {
      * @return true if a t least one discovery service could be found and forced
      *         to start a discovery, otherwise false
      */
-    boolean startScan(ThingTypeUID thingTypeUID, ScanListener listener);
+    boolean startScan(ThingTypeUID thingTypeUID, @Nullable ScanListener listener);
 
     /**
      * Forces the associated {@link DiscoveryService}s to start a discovery for
@@ -57,22 +63,19 @@ public interface DiscoveryServiceRegistry {
      * Returns {@code true}, if a at least one {@link DiscoveryService} could be found and forced to start a discovery,
      * otherwise {@code false}.
      *
-     * @param bindingId
-     *            the binding id pointing to one or more discovery services to
+     * @param bindingId the binding id pointing to one or more discovery services to
      *            be forced to start a discovery
-     * @param listener
-     *            a callback to inform about errors or termination, can be null.
+     * @param listener a callback to inform about errors or termination, can be null.
      *            If more than one discovery service is started, the {@link ScanListener#onFinished()} callback is
      *            called after all
      *            discovery services finished their scan. If one discovery
      *            service raises an error, the method {@link ScanListener#onErrorOccurred(Exception)} is called
      *            directly. All other finished or error callbacks will be ignored
      *            and not forwarded to the listener.
-     *
      * @return true if a t least one discovery service could be found and forced
      *         to start a discovery, otherwise false
      */
-    boolean startScan(String bindingId, ScanListener listener);
+    boolean startScan(String bindingId, @Nullable ScanListener listener);
 
     /**
      * Aborts a started discovery on all {@link DiscoveryService}s for the given
@@ -82,9 +85,7 @@ public interface DiscoveryServiceRegistry {
      * aborted, otherwise {@code false} . If the discovery process has not been started before, {@code true} is
      * returned.
      *
-     * @param thingTypeUID
-     *            the Thing type UID whose discovery scans should be aborted
-     *
+     * @param thingTypeUID the Thing type UID whose discovery scans should be aborted
      * @return true if at least one discovery service could be found and all
      *         discoveries could be aborted, otherwise false
      */
@@ -98,9 +99,7 @@ public interface DiscoveryServiceRegistry {
      * aborted, otherwise {@code false} . If the discovery process has not been started before, {@code true} is
      * returned.
      *
-     * @param bindingId
-     *            the binding id whose discovery scans should be aborted
-     *
+     * @param bindingId the binding id whose discovery scans should be aborted
      * @return true if at least one discovery service could be found and all
      *         discoveries could be aborted, otherwise false
      */
@@ -110,8 +109,7 @@ public interface DiscoveryServiceRegistry {
      * Returns true if the given thing type UID supports discovery, false
      * otherwise.
      *
-     * @param thingTypeUID
-     *            thing type UID
+     * @param thingTypeUID thing type UID
      * @return true if the given thing type UID supports discovery, false
      *         otherwise
      */
@@ -121,8 +119,7 @@ public interface DiscoveryServiceRegistry {
      * Returns true if the given binding id supports discovery for at least one
      * thing type.
      *
-     * @param bindingId
-     *            bindingId
+     * @param bindingId bindingId
      * @return true if the given binding id supports discovery, false otherwise
      */
     boolean supportsDiscovery(String bindingId);
@@ -133,9 +130,9 @@ public interface DiscoveryServiceRegistry {
      * When a {@link DiscoveryResult} is created by any of the monitored {@link DiscoveryService}s, (e.g. by forcing the
      * startup of the discovery process or while enabling the auto discovery mode), the specified listener is notified.
      * <p>
-     * This method returns silently if the specified listener is {@code null} or has already been registered before.
+     * This method returns silently if the specified listener has already been registered before.
      *
-     * @param listener the listener to be added (could be null)
+     * @param listener the listener to be added
      */
     void addDiscoveryListener(DiscoveryListener listener);
 
@@ -146,9 +143,9 @@ public interface DiscoveryServiceRegistry {
      * any of the monitored {@link DiscoveryService}s (e.g. by forcing the startup of the discovery process or while
      * enabling the auto discovery mode).
      * <p>
-     * This method returns silently if the specified listener is {@code null} or has not been registered before.
+     * This method returns silently if the specified listener has not been registered before.
      *
-     * @param listener the listener to be removed (could be null)
+     * @param listener the listener to be removed
      */
     void removeDiscoveryListener(DiscoveryListener listener);
 
@@ -168,18 +165,16 @@ public interface DiscoveryServiceRegistry {
 
     /**
      * Returns the maximum discovery timeout from all discovery services registered for the specified thingTypeUID
-     * 
-     * @param thingTypeUID
-     *            thing type UID
+     *
+     * @param thingTypeUID thing type UID
      * @return the maximum amount of seconds which the discovery can take
      */
     int getMaxScanTimeout(ThingTypeUID thingTypeUID);
 
     /**
      * Returns the maximum discovery timeout from all discovery services registered for the specified binding id
-     * 
-     * @param bindingId
-     *            id of the binding 
+     *
+     * @param bindingId id of the binding
      * @return the maximum amount of seconds which the discovery can take
      */
     int getMaxScanTimeout(String bindingId);

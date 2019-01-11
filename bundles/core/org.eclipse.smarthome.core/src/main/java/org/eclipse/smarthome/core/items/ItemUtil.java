@@ -1,15 +1,26 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.items;
 
-import org.eclipse.smarthome.core.types.Convertible;
+import java.util.Objects;
+
+import org.apache.commons.lang.StringUtils;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.smarthome.core.internal.service.BundleResolverImpl;
 import org.eclipse.smarthome.core.types.State;
-import org.slf4j.LoggerFactory;
+import org.osgi.framework.BundleContext;
+import org.osgi.framework.ServiceReference;
 
 /**
  * The {@link ItemUtil} class contains utility methods for {@link Item} objects.
@@ -18,8 +29,12 @@ import org.slf4j.LoggerFactory;
  *
  * @author Michael Grammling - Initial contribution and API
  * @author Simon Kaufmann - added type conversion
+ * @author Martin van Wingerden - when converting types convert null to UnDefType.NULL
  */
+@NonNullByDefault
 public class ItemUtil {
+
+    public static final String EXTENSION_SEPARATOR = ":";
 
     /**
      * The constructor is private.
@@ -41,15 +56,10 @@ public class ItemUtil {
      * </ul>
      *
      * @param itemName the name of the item to be checked (could be null or empty)
-     *
      * @return true if the specified name is a valid item name, otherwise false
      */
     public static boolean isValidItemName(final String itemName) {
-        if (itemName != null && !itemName.isEmpty()) {
-            return itemName.matches("[a-zA-Z0-9_]*");
-        }
-
-        return false;
+        return StringUtils.isNotEmpty(itemName) && itemName.matches("[a-zA-Z0-9_]*");
     }
 
     /**
@@ -67,7 +77,6 @@ public class ItemUtil {
      * </ul>
      *
      * @param itemName the name of the item to be checked (could be null or empty)
-     *
      * @throws IllegalArgumentException if the name of the item is invalid
      */
     public static void assertValidItemName(String itemName) throws IllegalArgumentException {
@@ -76,23 +85,57 @@ public class ItemUtil {
         }
     }
 
-    public static State convertToAcceptedState(final State state, final Item item) {
-        if (item != null && !isAccepted(item, state) && state instanceof Convertible) {
-            for (Class<? extends State> acceptedType : item.getAcceptedDataTypes()) {
-                State convertedState = ((Convertible) state).as(acceptedType);
-                if (convertedState != null) {
-                    LoggerFactory.getLogger(ItemUtil.class).debug("Converting {} '{}' to {} '{}' for item '{}'",
-                            state.getClass().getSimpleName(), state.toString(),
-                            convertedState.getClass().getSimpleName(), convertedState.toString(), item.getName());
-                    return convertedState;
-                }
-            }
+    /**
+     * Get the main item type from an item type name. The name may consist of an extended item type where an extension
+     * is separated by ":".
+     *
+     * @param itemTypeName the item type name, e.g. "Number:Temperature" or "Switch".
+     * @return the main item type without the extension.
+     */
+    public static String getMainItemType(String itemTypeName) {
+        Objects.requireNonNull(itemTypeName);
+
+        if (itemTypeName.contains(EXTENSION_SEPARATOR)) {
+            return itemTypeName.substring(0, itemTypeName.indexOf(EXTENSION_SEPARATOR));
         }
-        return state;
+
+        return itemTypeName;
     }
 
-    private static boolean isAccepted(Item item, State state) {
-        return item.getAcceptedDataTypes().contains(state.getClass());
+    /**
+     * Get the optional extension from an item type name.
+     *
+     * @param itemTypeName the item type name, e.g. "Number:Temperature" or "Switch".
+     * @return the extension from the item type name, {@code null} in case no extension is defined.
+     */
+    public static @Nullable String getItemTypeExtension(@Nullable String itemTypeName) {
+        if (itemTypeName == null) {
+            return null;
+        }
+        if (itemTypeName.contains(ItemUtil.EXTENSION_SEPARATOR)) {
+            return itemTypeName.substring(itemTypeName.indexOf(ItemUtil.EXTENSION_SEPARATOR) + 1);
+        }
+
+        return null;
+    }
+
+    /**
+     * @deprecated use DS service {@link ItemStateConverter#convertToAcceptedState(State, Item)} instead.
+     */
+    @Deprecated
+    public static @Nullable State convertToAcceptedState(@Nullable State state, Item item) {
+        BundleContext bundleContext = new BundleResolverImpl().resolveBundle(ItemUtil.class).getBundleContext();
+        ServiceReference<ItemStateConverter> service = bundleContext.getServiceReference(ItemStateConverter.class);
+        if (service == null) {
+            return null;
+        }
+
+        ItemStateConverter itemStateConverter = bundleContext.getService(service);
+        if (itemStateConverter == null) {
+            return null;
+        }
+
+        return itemStateConverter.convertToAcceptedState(state, item);
     }
 
 }

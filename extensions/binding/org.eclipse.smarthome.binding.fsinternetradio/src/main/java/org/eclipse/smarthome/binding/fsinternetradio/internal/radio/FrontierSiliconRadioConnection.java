@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.fsinternetradio.internal.radio;
 
@@ -32,16 +37,13 @@ public class FrontierSiliconRadioConnection {
     private final Logger logger = LoggerFactory.getLogger(FrontierSiliconRadioConnection.class);
 
     /** Timeout for HTTP requests in ms */
-    private final static int SOCKET_TIMEOUT = 5000;
+    private static final int SOCKET_TIMEOUT = 5000;
 
     /** Hostname of the radio. */
     private final String hostname;
 
     /** Port number, usually 80. */
     private final int port;
-
-    /** URL path, must begin with a slash (/) */
-    private static final String path = "/fsapi";
 
     /** Access pin, passed upon login as GET parameter. */
     private final String pin;
@@ -55,14 +57,15 @@ public class FrontierSiliconRadioConnection {
     /** Flag indicating if we are successfully logged in. */
     private boolean isLoggedIn = false;
 
-    public FrontierSiliconRadioConnection(String hostname, int port, String pin) {
+    public FrontierSiliconRadioConnection(String hostname, int port, String pin, HttpClient httpClient) {
         this.hostname = hostname;
         this.port = port;
         this.pin = pin;
+        this.httpClient = httpClient;
     }
 
-    protected void deactivate() {
-        stopHttpClient(httpClient);
+    public boolean isLoggedIn() {
+        return isLoggedIn;
     }
 
     /**
@@ -75,13 +78,8 @@ public class FrontierSiliconRadioConnection {
     public boolean doLogin() throws IOException {
         isLoggedIn = false; // reset login flag
 
-        if (httpClient == null) {
-            httpClient = new HttpClient();
-        }
-
-        startHttpClient(httpClient);
-
-        final String url = "http://" + hostname + ":" + port + path + "/CREATE_SESSION?pin=" + pin;
+        final String url = "http://" + hostname + ":" + port + FrontierSiliconRadioConstants.CONNECTION_PATH
+                + "/CREATE_SESSION?pin=" + pin;
 
         logger.trace("opening URL: {}", url);
 
@@ -95,7 +93,7 @@ public class FrontierSiliconRadioConnection {
                 String reason = response.getReason();
                 logger.debug("Communication with radio failed: {} {}", statusCode, reason);
                 if (statusCode == HttpStatus.FORBIDDEN_403) {
-                    throw new RuntimeException("Radio does not allow connection, maybe wrong pin?");
+                    throw new IllegalStateException("Radio does not allow connection, maybe wrong pin?");
                 }
                 throw new IOException("Communication with radio failed, return code: " + statusCode);
             }
@@ -148,20 +146,17 @@ public class FrontierSiliconRadioConnection {
      * @throws IOException if the request failed.
      */
     public FrontierSiliconRadioApiResult doRequest(String requestString, String params) throws IOException {
-
         // 3 retries upon failure
         for (int i = 0; i < 3; i++) {
             if (!isLoggedIn && !doLogin()) {
                 continue; // not logged in and login was not successful - try again!
             }
 
-            final String url = "http://" + hostname + ":" + port + path + "/" + requestString + "?pin=" + pin + "&sid="
-                    + sessionId + (params == null || params.trim().length() == 0 ? "" : "&" + params);
+            final String url = "http://" + hostname + ":" + port + FrontierSiliconRadioConstants.CONNECTION_PATH + "/"
+                    + requestString + "?pin=" + pin + "&sid=" + sessionId
+                    + (params == null || params.trim().length() == 0 ? "" : "&" + params);
 
             logger.trace("calling url: '{}'", url);
-
-            // HttpClient can not be null, instance is created in doLogin() method
-            startHttpClient(httpClient);
 
             Request request = httpClient.newRequest(url).method(HttpMethod.GET).timeout(SOCKET_TIMEOUT,
                     TimeUnit.MILLISECONDS);
@@ -208,23 +203,4 @@ public class FrontierSiliconRadioConnection {
         return null;
     }
 
-    private void startHttpClient(HttpClient client) {
-        if (!client.isStarted()) {
-            try {
-                client.start();
-            } catch (Exception e1) {
-                logger.warn("Can not start HttpClient !", e1);
-            }
-        }
-    }
-
-    private void stopHttpClient(HttpClient client) {
-        if (client.isStarted()) {
-            try {
-                client.stop();
-            } catch (Exception e) {
-                logger.error("Unable to stop HttpClient !", e);
-            }
-        }
-    }
 }

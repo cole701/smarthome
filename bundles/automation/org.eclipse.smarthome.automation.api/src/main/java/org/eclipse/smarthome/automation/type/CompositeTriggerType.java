@@ -1,88 +1,90 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.type;
 
-import java.util.ArrayList;
-import java.util.LinkedHashSet;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.automation.Trigger;
 import org.eclipse.smarthome.automation.Visibility;
 import org.eclipse.smarthome.config.core.ConfigDescriptionParameter;
 
 /**
- * {@code CompositeTriggerType} is as {@link TriggerType} which logically combines {@link Trigger} modules. The
- * composite trigger hides internal logic between participating {@link Trigger}s and it can be used as a regular
- * {@link Trigger} module.
+ * This class is as {@link TriggerType} which logically combines {@link Trigger} modules. The composite trigger hides
+ * internal logic between participating {@link Trigger}s and it can be used as a regular {@link Trigger} module.
  *
  * @author Yordan Mihaylov - Initial Contribution
  * @author Ana Dimova - Initial Contribution
  * @author Vasil Ilchev - Initial Contribution
  */
+@NonNullByDefault
 public class CompositeTriggerType extends TriggerType {
 
-    private List<Trigger> children;
+    private final List<Trigger> children;
 
     /**
-     * Default constructor for deserialization e.g. by Gson.
-     */
-    protected CompositeTriggerType() {
-    }
-
-    /**
-     * This constructor is responsible for creation of a {@code CompositeTriggerType} with ordered set of
-     * {@link Trigger}s.
-     * It initialize only base properties of the {@code CompositeTriggerType}.
+     * Creates an instance of {@code CompositeTriggerType} with ordered set of {@link Trigger} modules. It initializes
+     * only base properties of the {@code CompositeTriggerType}.
      *
-     * @param UID is the unique id of this module type in scope of the RuleEngine.
-     * @param configDescriptions is a {@link Set} of configuration descriptions.
-     * @param children is a {@link LinkedHashSet} of {@link Trigger}s.
-     * @param outputs is a {@link Set} of {@link Output} descriptions.
+     * @param UID                the {@link TriggerType}'s identifier, or {@code null} if a random identifier should be
+     *                           generated.
+     * @param configDescriptions describing meta-data for the configuration of the future {@link Trigger} instances.
+     * @param outputs            a {@link List} with {@link Output} meta-information descriptions of the future
+     *                           {@link Trigger} instances.
+     * @param children           is a {@link List} of {@link Trigger} modules.
      *
      */
-    public CompositeTriggerType(String UID, List<ConfigDescriptionParameter> configDescriptions, List<Output> outputs,
-            List<Trigger> children) {
+    public CompositeTriggerType(@Nullable String UID, @Nullable List<ConfigDescriptionParameter> configDescriptions,
+            @Nullable List<Output> outputs, @Nullable List<Trigger> children) {
         super(UID, configDescriptions, outputs);
-        this.children = children;
+        this.children = children != null ? Collections.unmodifiableList(children) : Collections.emptyList();
     }
 
     /**
-     * This constructor is responsible for creation of a {@code CompositeTriggerType} with ordered set of
-     * {@link Trigger}s.
-     * It initialize all properties of the {@code CompositeTriggerType}.
+     * Creates an instance of {@code CompositeTriggerType} with ordered set of {@link Trigger} modules. It initializes
+     * all properties of the {@code CompositeTriggerType}.
      *
-     * @param UID is the unique id of this module type in scope of the RuleEngine.
-     * @param configDescriptions is a {@link Set} of configuration descriptions.
-     * @param label is a short and accurate name of the {@code CompositeTriggerType}.
-     * @param description is a short and understandable description of which can be used the {@code CompositeActionType}
-     *            .
-     * @param tags defines categories that fit the {@code CompositTriggerType} and which can serve as criteria for
-     *            searching
-     *            or filtering it.
-     * @param visibility determines whether the {@code CompositeTriggerType} can be used by anyone if it is
-     *            {@link Visibility#VISIBLE} or only by its creator if it is {@link Visibility#HIDDEN}.
-     * @param outputs is a {@link Set} of {@link Output} descriptions.
-     * @param children is a {@link LinkedHashSet} of {@link Trigger}s.
+     * @param UID                the {@link TriggerType}'s identifier, or {@code null} if a random identifier should be
+     *                           generated.
+     * @param configDescriptions describing meta-data for the configuration of the future {@link Trigger} instances.
+     * @param label              a short and accurate, human-readable label of the {@link TriggerType}.
+     * @param description        a detailed, human-readable description of usage of {@link TriggerType} and its
+     *                           benefits.
+     * @param tags               defines categories that fit the {@link TriggerType} and which can serve as criteria for
+     *                           searching or filtering it.
+     * @param visibility         determines whether the {@link TriggerType} can be used by anyone if it is
+     *                           {@link Visibility#VISIBLE} or only by its creator if it is {@link Visibility#HIDDEN}.
+     * @param outputs            a {@link List} with {@link Output} meta-information descriptions of the future
+     *                           {@link Trigger} instances.
+     * @param children           is a {@link List} of {@link Trigger} modules.
      */
-    public CompositeTriggerType(String UID, List<ConfigDescriptionParameter> configDescriptions, String label,
-            String description, Set<String> tags, Visibility visibility, List<Output> outputs, List<Trigger> children) {
+    public CompositeTriggerType(@Nullable String UID, @Nullable List<ConfigDescriptionParameter> configDescriptions,
+            @Nullable String label, @Nullable String description, @Nullable Set<String> tags,
+            @Nullable Visibility visibility, @Nullable List<Output> outputs, @Nullable List<Trigger> children) {
         super(UID, configDescriptions, label, description, tags, visibility, outputs);
-        this.children = children;
+        this.children = children != null ? Collections.unmodifiableList(children) : Collections.emptyList();
     }
 
     /**
-     * This method is used for getting the {@link Trigger}s of the {@code CompositeTriggerType}.
+     * Gets the {@link Trigger} modules of the {@code CompositeTriggerType}.
      *
-     * @return a {@link LinkedHashSet} of the {@link Trigger} modules of this {@code CompositeTriggerType}.
+     * @return a {@link List} of the {@link Trigger} modules of this {@code CompositeTriggerType}.
      */
     public List<Trigger> getChildren() {
-        return children != null ? children : new ArrayList<Trigger>(0);
+        return children;
     }
 
 }

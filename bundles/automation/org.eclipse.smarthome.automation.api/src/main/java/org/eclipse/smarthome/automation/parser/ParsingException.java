@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.parser;
 
@@ -20,22 +25,22 @@ import java.util.List;
 public class ParsingException extends Exception {
 
     /**
-     * This field keeps all accumulated exceptions.
+     * Keeps all accumulated exceptions.
      */
     List<ParsingNestedException> exceptions;
 
     /**
-     * This constructor creates the holder for one exception during the parsing process.
+     * Creates the holder for one exception during the parsing process.
      *
      * @param e is an exception during the parsing process.
      */
     public ParsingException(ParsingNestedException e) {
-        exceptions = new ArrayList<ParsingNestedException>();
+        exceptions = new ArrayList<>();
         exceptions.add(e);
     }
 
     /**
-     * This constructor creates a holder for several exceptions during the parsing process.
+     * Creates a holder for several exceptions during the parsing process.
      *
      * @param exceptions is a list with exceptions during the parsing process.
      */
@@ -62,10 +67,8 @@ public class ParsingException extends Exception {
         StackTraceElement[] st = new StackTraceElement[size];
         for (int n = 0; n < exceptions.size(); n++) {
             StackTraceElement[] ste = exceptions.get(n).getStackTrace();
-            for (int i = 0; i < ste.length; i++) {
-                st[index] = ste[i];
-                index++;
-            }
+            System.arraycopy(ste, 0, st, index, ste.length);
+            index += ste.length;
         }
         return st;
     }

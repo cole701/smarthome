@@ -1,17 +1,27 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.model.script.internal.actions;
 
+import static org.quartz.JobBuilder.newJob;
 import static org.quartz.TriggerBuilder.newTrigger;
+
+import java.util.Date;
 
 import org.eclipse.smarthome.model.script.actions.Timer;
 import org.joda.time.DateTime;
 import org.joda.time.base.AbstractInstant;
+import org.quartz.JobDataMap;
+import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobKey;
 import org.quartz.Scheduler;
@@ -44,17 +54,20 @@ public class TimerImpl implements Timer {
         }
     }
 
-    private JobKey jobKey;
+    private final JobKey jobKey;
     private TriggerKey triggerKey;
-    private AbstractInstant startTime;
+    private final JobDataMap dataMap;
+    private final AbstractInstant startTime;
 
     private boolean cancelled = false;
     private boolean terminated = false;
 
-    public TimerImpl(JobKey jobKey, TriggerKey triggerKey, AbstractInstant startTime) {
+    public TimerImpl(JobKey jobKey, TriggerKey triggerKey, JobDataMap dataMap, AbstractInstant startTime) {
         this.jobKey = jobKey;
         this.triggerKey = triggerKey;
+        this.dataMap = dataMap;
         this.startTime = startTime;
+        dataMap.put("timer", this);
     }
 
     @Override
@@ -65,7 +78,7 @@ public class TimerImpl implements Timer {
                 cancelled = true;
             }
         } catch (SchedulerException e) {
-            logger.warn("An error occured while cancelling the job '{}': {}", jobKey.toString(), e.getMessage());
+            logger.warn("An error occurred while cancelling the job '{}': {}", jobKey.toString(), e.getMessage());
         }
         return cancelled;
     }
@@ -74,13 +87,18 @@ public class TimerImpl implements Timer {
     public boolean reschedule(AbstractInstant newTime) {
         try {
             Trigger trigger = newTrigger().startAt(newTime.toDate()).build();
-            scheduler.rescheduleJob(triggerKey, trigger);
+            Date nextTriggerTime = scheduler.rescheduleJob(triggerKey, trigger);
+            if (nextTriggerTime == null) {
+                logger.debug("Scheduling a new job job '{}' because the original has already run", jobKey.toString());
+                JobDetail job = newJob(TimerExecutionJob.class).withIdentity(jobKey).usingJobData(dataMap).build();
+                TimerImpl.scheduler.scheduleJob(job, trigger);
+            }
             this.triggerKey = trigger.getKey();
             this.cancelled = false;
             this.terminated = false;
             return true;
         } catch (SchedulerException e) {
-            logger.warn("An error occured while rescheduling the job '{}': {}", jobKey.toString(), e.getMessage());
+            logger.warn("An error occurred while rescheduling the job '{}': {}", jobKey.toString(), e.getMessage());
             return false;
         }
     }
@@ -96,7 +114,7 @@ public class TimerImpl implements Timer {
             return false;
         } catch (SchedulerException e) {
             // fallback implementation
-            logger.debug("An error occured getting currently running jobs: {}", e.getMessage());
+            logger.debug("An error occurred getting currently running jobs: {}", e.getMessage());
             return DateTime.now().isAfter(startTime) && !terminated;
         }
     }

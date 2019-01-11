@@ -1,16 +1,21 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.digitalstrom.internal.lib.structure.impl;
 
 import java.util.LinkedList;
 import java.util.List;
 
-import org.eclipse.smarthome.binding.digitalstrom.internal.lib.serverConnection.constants.JSONApiResponseKeysEnum;
+import org.eclipse.smarthome.binding.digitalstrom.internal.lib.serverconnection.constants.JSONApiResponseKeysEnum;
 import org.eclipse.smarthome.binding.digitalstrom.internal.lib.structure.DetailedGroupInfo;
 
 import com.google.gson.JsonArray;
@@ -25,20 +30,25 @@ import com.google.gson.JsonObject;
  */
 public class JSONDetailedGroupInfoImpl implements DetailedGroupInfo {
 
-    private String name = null;
+    private String name;
     private short groupId = 0;
-    private List<String> deviceList = null;
+    private final List<String> deviceList;
 
+    /**
+     * Creates a new {@link JSONDetailedGroupInfoImpl} through the {@link JsonObject}.
+     *
+     * @param jObject of the server response, must not be null
+     */
     public JSONDetailedGroupInfoImpl(JsonObject jObject) {
         this.deviceList = new LinkedList<String>();
-        if (jObject.get(JSONApiResponseKeysEnum.GROUP_NAME.getKey()) != null) {
-            name = jObject.get(JSONApiResponseKeysEnum.GROUP_NAME.getKey()).getAsString();
+        if (jObject.get(JSONApiResponseKeysEnum.NAME.getKey()) != null) {
+            name = jObject.get(JSONApiResponseKeysEnum.NAME.getKey()).getAsString();
         }
-        if (jObject.get(JSONApiResponseKeysEnum.GROUP_ID.getKey()) != null) {
-            this.groupId = jObject.get(JSONApiResponseKeysEnum.GROUP_ID.getKey()).getAsShort();
+        if (jObject.get(JSONApiResponseKeysEnum.ID.getKey()) != null) {
+            this.groupId = jObject.get(JSONApiResponseKeysEnum.ID.getKey()).getAsShort();
         }
-        if (jObject.get(JSONApiResponseKeysEnum.GROUP_DEVICES.getKey()) instanceof JsonArray) {
-            JsonArray array = (JsonArray) jObject.get(JSONApiResponseKeysEnum.GROUP_DEVICES.getKey());
+        if (jObject.get(JSONApiResponseKeysEnum.DEVICES.getKey()) instanceof JsonArray) {
+            JsonArray array = (JsonArray) jObject.get(JSONApiResponseKeysEnum.DEVICES.getKey());
 
             for (int i = 0; i < array.size(); i++) {
                 if (array.get(i) != null) {

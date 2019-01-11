@@ -8,6 +8,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<meta name="apple-mobile-web-app-capable" content="yes" />
 		<meta name="apple-mobile-web-app-status-bar-style" content="black" />
+		<meta name="theme-color" content="#354497">
 
 		<link rel="icon" href="favicon.ico">
 		<link href="images/touch-icon-57.png" sizes="57x57" rel="apple-touch-icon-precomposed">
@@ -55,29 +56,36 @@
 		<script type="text/html" id="template-offline-notify">
 			<div class="mdl-notify">
 				<div class="mdl-notify__text">
-					Offline: waiting for connection to become available
+					%main.offline-msg%
+				</div>
+			</div>
+		</script>
+		<script type="text/html" id="template-long-polling-mode-notify">
+			<div class="mdl-notify">
+				<div class="mdl-notify__text">
+					%main.long-polling-mode-msg%
 				</div>
 			</div>
 		</script>
 	</head>
-	<body class="mdl-color--grey-100 mdl-color-text--grey-700" data-sitemap="%sitemap%" data-page-id="%id%" data-icon-type="%icon_type%">
+	<body class="mdl-color-text--grey-700" data-sitemap="%sitemap%" data-page-id="%id%" data-theme="%theme%" data-icon-type="%icon_type%">
 	<div class="mdl-layout mdl-js-layout mdl-layout--fixed-header">
 		<header class="mdl-layout__header mdl-layout__header--scroll navigation navigation-home">
 			<div class="mdl-layout__header-row">
 				<div class="mdl-layout__header-button navigation__button-back">
 					<!-- arrow_back -->
-					<i class="material-icons">&#xea63;</i>
+					<i class="material-icons">&#xE5C4;</i>
 				</div>
 				<div class="mdl-layout__header-button navigation__button-home">
 					<!-- home -->
-					<i class="material-icons">&#xe7f9;</i>
+					<i class="material-icons">&#xE88A;</i>
 				</div>
 				<span class="mdl-layout-title">%label%</span>
 				<div class="mdl-layout-spacer"></div>
 			</div>
 			<div class="ui__loading mdl-progress mdl-js-progress mdl-progress__indeterminate"></div>
 		</header>
-		<main class="mdl-layout__content mdl-color--grey-100">
+		<main class="mdl-layout__content">
 			<div class="page-content mdl-grid">
 				%children%
 			</div>

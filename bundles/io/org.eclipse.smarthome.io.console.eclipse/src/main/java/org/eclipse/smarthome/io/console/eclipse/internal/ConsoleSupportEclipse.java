@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.io.console.eclipse.internal;
 
@@ -22,6 +27,10 @@ import org.eclipse.osgi.framework.console.CommandProvider;
 import org.eclipse.smarthome.io.console.Console;
 import org.eclipse.smarthome.io.console.ConsoleInterpreter;
 import org.eclipse.smarthome.io.console.extensions.ConsoleCommandExtension;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 
 /**
  * This class provides access to Eclipse SmartHome functionality through the OSGi console
@@ -32,16 +41,18 @@ import org.eclipse.smarthome.io.console.extensions.ConsoleCommandExtension;
  * @author Markus Rathgeb - Split console interface and specific implementation
  *
  */
+@Component
 public class ConsoleSupportEclipse implements CommandProvider {
 
     private final String BASE = "smarthome";
 
-    private SortedMap<String, ConsoleCommandExtension> consoleCommandExtensions = Collections
+    private final SortedMap<String, ConsoleCommandExtension> consoleCommandExtensions = Collections
             .synchronizedSortedMap(new TreeMap<String, ConsoleCommandExtension>());
 
     public ConsoleSupportEclipse() {
     }
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     public void addConsoleCommandExtension(ConsoleCommandExtension consoleCommandExtension) {
         consoleCommandExtensions.put(consoleCommandExtension.getCommand(), consoleCommandExtension);
     }
@@ -69,7 +80,6 @@ public class ConsoleSupportEclipse implements CommandProvider {
      * @return null, return parameter is not used
      */
     public Object _smarthome(final CommandInterpreter interpreter) {
-
         final Console console = new OSGiConsole(BASE, interpreter);
 
         final String cmd = interpreter.nextArgument();

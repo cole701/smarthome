@@ -1,13 +1,25 @@
 Manifest-Version: 1.0
-Bundle-Name: Eclipse SmartHome JSonPath Transformation Service
-Bundle-Vendor: Eclipse.org/SmartHome
-Bundle-Version: 0.9.0.qualifier
-Bundle-ManifestVersion: 2
-Bundle-License: http://www.eclipse.org/legal/epl-v10.html
-Import-Package: com.jayway.jsonpath,
- org.eclipse.smarthome.core.transform,
- org.slf4j
-Bundle-SymbolicName: org.eclipse.smarthome.transform.jsonpath
-Bundle-RequiredExecutionEnvironment: JavaSE-1.8
-Service-Component: OSGI-INF/jsonpathservice.xml
 Bundle-ClassPath: .
+Bundle-License: https://www.eclipse.org/legal/epl-2.0/
+Bundle-ManifestVersion: 2
+Bundle-Name: Eclipse SmartHome JSonPath Transformation Service
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-SymbolicName: org.eclipse.smarthome.transform.jsonpath
+Bundle-Vendor: Eclipse.org/SmartHome
+Bundle-Version: 0.11.0.qualifier
+Import-Package: 
+ com.jayway.jsonpath,
+ net.minidev.json,
+ net.minidev.json.annotate,
+ net.minidev.json.parser,
+ net.minidev.json.reader,
+ net.minidev.json.writer,
+ org.eclipse.jdt.annotation;resolution:=optional,
+ org.eclipse.smarthome.config.core,
+ org.eclipse.smarthome.core.library.types,
+ org.eclipse.smarthome.core.thing.profiles,
+ org.eclipse.smarthome.core.transform,
+ org.eclipse.smarthome.core.types,
+ org.slf4j
+Service-Component: OSGI-INF/*.xml
+Automatic-Module-Name: org.eclipse.smarthome.transform.jsonpath

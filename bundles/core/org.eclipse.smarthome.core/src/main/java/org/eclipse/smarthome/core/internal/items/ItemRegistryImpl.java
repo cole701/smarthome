@@ -1,23 +1,28 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.internal.items;
 
+import static java.util.stream.Collectors.toList;
+
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.eclipse.smarthome.core.common.registry.AbstractRegistry;
 import org.eclipse.smarthome.core.common.registry.Provider;
 import org.eclipse.smarthome.core.events.EventPublisher;
+import org.eclipse.smarthome.core.i18n.UnitProvider;
 import org.eclipse.smarthome.core.items.GenericItem;
 import org.eclipse.smarthome.core.items.GroupItem;
 import org.eclipse.smarthome.core.items.Item;
@@ -25,15 +30,19 @@ import org.eclipse.smarthome.core.items.ItemNotFoundException;
 import org.eclipse.smarthome.core.items.ItemNotUniqueException;
 import org.eclipse.smarthome.core.items.ItemProvider;
 import org.eclipse.smarthome.core.items.ItemRegistry;
+import org.eclipse.smarthome.core.items.ItemStateConverter;
 import org.eclipse.smarthome.core.items.ItemUtil;
 import org.eclipse.smarthome.core.items.ManagedItemProvider;
+import org.eclipse.smarthome.core.items.MetadataRegistry;
+import org.eclipse.smarthome.core.items.RegistryHook;
 import org.eclipse.smarthome.core.items.events.ItemEventFactory;
-import org.eclipse.smarthome.core.types.StateDescriptionProvider;
-import org.osgi.framework.BundleContext;
-import org.osgi.framework.Constants;
-import org.osgi.framework.ServiceReference;
+import org.eclipse.smarthome.core.service.StateDescriptionService;
 import org.osgi.service.component.ComponentContext;
-import org.osgi.util.tracker.ServiceTracker;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,28 +56,22 @@ import org.slf4j.LoggerFactory;
  * @author Stefan Bußweiler - Migration to new event mechanism
  *
  */
+@Component(immediate = true)
 public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvider> implements ItemRegistry {
 
     private final Logger logger = LoggerFactory.getLogger(ItemRegistryImpl.class);
 
-    private StateDescriptionProviderTracker stateDescriptionProviderTracker;
+    private final List<RegistryHook<Item>> registryHooks = new CopyOnWriteArrayList<>();
+    private StateDescriptionService stateDescriptionService;
+    private MetadataRegistry metadataRegistry;
 
-    private List<StateDescriptionProvider> stateDescriptionProviders = Collections
-            .synchronizedList(new ArrayList<StateDescriptionProvider>());
-
-    private Map<String, Integer> stateDescriptionProviderRanking = new ConcurrentHashMap<>();
+    private UnitProvider unitProvider;
+    private ItemStateConverter itemStateConverter;
 
     public ItemRegistryImpl() {
         super(ItemProvider.class);
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.eclipse.smarthome.core.internal.items.ItemRegistry#getItem(java.lang
-     * .String)
-     */
     @Override
     public Item getItem(String name) throws ItemNotFoundException {
         final Item item = get(name);
@@ -79,25 +82,6 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
         }
     }
 
-    @Override
-    public Item get(final String itemName) {
-        for (final Map.Entry<Provider<Item>, Collection<Item>> entry : elementMap.entrySet()) {
-            for (final Item item : entry.getValue()) {
-                if (itemName.equals(item.getName())) {
-                    return item;
-                }
-            }
-        }
-        return null;
-    }
-
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.eclipse.smarthome.core.internal.items.ItemRegistry#getItemByPattern
-     * (java.lang.String)
-     */
     @Override
     public Item getItemByPattern(String name) throws ItemNotFoundException, ItemNotUniqueException {
         Collection<Item> items = getItems(name);
@@ -110,15 +94,15 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
             throw new ItemNotUniqueException(name, items);
         }
 
-        return items.iterator().next();
+        Item item = items.iterator().next();
 
+        if (item == null) {
+            throw new ItemNotFoundException(name);
+        } else {
+            return item;
+        }
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see org.eclipse.smarthome.core.internal.items.ItemRegistry#getItems()
-     */
     @Override
     public Collection<Item> getItems() {
         return getAll();
@@ -137,13 +121,6 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
         return matchedItems;
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.eclipse.smarthome.core.internal.items.ItemRegistry#getItems(java.
-     * lang.String)
-     */
     @Override
     public Collection<Item> getItems(String pattern) {
         String regex = pattern.replace("?", ".?").replace("*", ".*?");
@@ -160,13 +137,30 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
 
     private void addToGroupItems(Item item, List<String> groupItemNames) {
         for (String groupName : groupItemNames) {
-            try {
-                Item groupItem = getItem(groupName);
-                if (groupItem instanceof GroupItem) {
-                    ((GroupItem) groupItem).addMember(item);
+            if (groupName != null) {
+                try {
+                    Item groupItem = getItem(groupName);
+                    if (groupItem instanceof GroupItem) {
+                        ((GroupItem) groupItem).addMember(item);
+                    }
+                } catch (ItemNotFoundException e) {
+                    // the group might not yet be registered, let's ignore this
                 }
-            } catch (ItemNotFoundException e) {
-                // the group might not yet be registered, let's ignore this
+            }
+        }
+    }
+
+    private void replaceInGroupItems(Item oldItem, Item newItem, List<String> groupItemNames) {
+        for (String groupName : groupItemNames) {
+            if (groupName != null) {
+                try {
+                    Item groupItem = getItem(groupName);
+                    if (groupItem instanceof GroupItem) {
+                        ((GroupItem) groupItem).replaceMember(oldItem, newItem);
+                    }
+                } catch (ItemNotFoundException e) {
+                    // the group might not yet be registered, let's ignore this
+                }
             }
         }
     }
@@ -196,16 +190,10 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
     private void injectServices(Item item) {
         if (item instanceof GenericItem) {
             GenericItem genericItem = (GenericItem) item;
-            genericItem.setEventPublisher(eventPublisher);
-            genericItem.setStateDescriptionProviders(stateDescriptionProviders);
-        }
-    }
-
-    private void clearServices(Item item) {
-        if (item instanceof GenericItem) {
-            GenericItem genericItem = (GenericItem) item;
-            genericItem.setEventPublisher(null);
-            genericItem.setStateDescriptionProviders(null);
+            genericItem.setEventPublisher(getEventPublisher());
+            genericItem.setStateDescriptionService(stateDescriptionService);
+            genericItem.setUnitProvider(unitProvider);
+            genericItem.setItemStateConverter(itemStateConverter);
         }
     }
 
@@ -219,13 +207,15 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
 
     private void removeFromGroupItems(Item item, List<String> groupItemNames) {
         for (String groupName : groupItemNames) {
-            try {
-                Item groupItem = getItem(groupName);
-                if (groupItem instanceof GroupItem) {
-                    ((GroupItem) groupItem).removeMember(item);
+            if (groupName != null) {
+                try {
+                    Item groupItem = getItem(groupName);
+                    if (groupItem instanceof GroupItem) {
+                        ((GroupItem) groupItem).removeMember(item);
+                    }
+                } catch (ItemNotFoundException e) {
+                    // the group might not yet be registered, let's ignore this
                 }
-            } catch (ItemNotFoundException e) {
-                // the group might not yet be registered, let's ignore this
             }
         }
     }
@@ -237,22 +227,37 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
 
     @Override
     protected void onRemoveElement(Item element) {
-        clearServices(element);
+        if (element instanceof GenericItem) {
+            ((GenericItem) element).dispose();
+        }
         removeFromGroupItems(element, element.getGroupNames());
     }
 
     @Override
-    protected void onUpdateElement(Item oldItem, Item item) {
-        clearServices(oldItem);
-        injectServices(item);
-        removeFromGroupItems(oldItem, oldItem.getGroupNames());
-        addToGroupItems(item, item.getGroupNames());
-        if (item instanceof GroupItem) {
-            addMembersToGroupItem((GroupItem) item);
+    protected void beforeUpdateElement(Item existingElement) {
+        if (existingElement instanceof GenericItem) {
+            ((GenericItem) existingElement).dispose();
         }
     }
 
     @Override
+    protected void onUpdateElement(Item oldItem, Item item) {
+        // don't use #initialize and retain order of items in groups:
+        List<String> oldNames = oldItem.getGroupNames();
+        List<String> newNames = item.getGroupNames();
+        List<String> commonNames = oldNames.stream().filter(name -> newNames.contains(name)).collect(toList());
+
+        removeFromGroupItems(oldItem, oldNames.stream().filter(name -> !commonNames.contains(name)).collect(toList()));
+        replaceInGroupItems(oldItem, item, commonNames);
+        addToGroupItems(item, newNames.stream().filter(name -> !commonNames.contains(name)).collect(toList()));
+        if (item instanceof GroupItem) {
+            addMembersToGroupItem((GroupItem) item);
+        }
+        injectServices(item);
+    }
+
+    @Override
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
     protected void setEventPublisher(EventPublisher eventPublisher) {
         super.setEventPublisher(eventPublisher);
         for (Item item : getItems()) {
@@ -265,6 +270,36 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
         super.unsetEventPublisher(eventPublisher);
         for (Item item : getItems()) {
             ((GenericItem) item).setEventPublisher(null);
+        }
+    }
+
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
+    protected void setUnitProvider(UnitProvider unitProvider) {
+        this.unitProvider = unitProvider;
+        for (Item item : getItems()) {
+            ((GenericItem) item).setUnitProvider(unitProvider);
+        }
+    }
+
+    protected void unsetUnitProvider(UnitProvider unitProvider) {
+        this.unitProvider = null;
+        for (Item item : getItems()) {
+            ((GenericItem) item).setUnitProvider(null);
+        }
+    }
+
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
+    protected void setItemStateConverter(ItemStateConverter itemStateConverter) {
+        this.itemStateConverter = itemStateConverter;
+        for (Item item : getItems()) {
+            ((GenericItem) item).setItemStateConverter(itemStateConverter);
+        }
+    }
+
+    protected void unsetItemStateConverter(ItemStateConverter itemStateConverter) {
+        this.itemStateConverter = null;
+        for (Item item : getItems()) {
+            ((GenericItem) item).setItemStateConverter(null);
         }
     }
 
@@ -290,7 +325,7 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
 
     @Override
     @SuppressWarnings("unchecked")
-    public <T extends GenericItem> Collection<T> getItemsByTag(Class<T> typeFilter, String... tags) {
+    public <T extends Item> Collection<T> getItemsByTag(Class<T> typeFilter, String... tags) {
         Collection<T> filteredItems = new ArrayList<T>();
 
         Collection<Item> items = getItemsByTag(tags);
@@ -315,11 +350,9 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
 
     @Override
     public Item remove(String itemName, boolean recursive) {
-        if (this.managedProvider != null) {
-            return ((ManagedItemProvider) this.managedProvider).remove(itemName, recursive);
-        } else {
-            throw new IllegalStateException("ManagedProvider is not available");
-        }
+        return ((ManagedItemProvider) getManagedProvider()
+                .orElseThrow(() -> new IllegalStateException("ManagedProvider is not available"))).remove(itemName,
+                        recursive);
     }
 
     @Override
@@ -340,65 +373,100 @@ public class ItemRegistryImpl extends AbstractRegistry<Item, String, ItemProvide
         postEvent(ItemEventFactory.createUpdateEvent(element, oldElement));
     }
 
+    @Override
+    public void added(Provider<Item> provider, Item element) {
+        for (RegistryHook<Item> registryHook : registryHooks) {
+            registryHook.beforeAdding(element);
+        }
+        super.added(provider, element);
+    }
+
+    @Override
+    protected void addProvider(Provider<Item> provider) {
+        for (Item element : provider.getAll()) {
+            for (RegistryHook<Item> registryHook : registryHooks) {
+                registryHook.beforeAdding(element);
+            }
+        }
+        super.addProvider(provider);
+    }
+
+    @Override
+    public void removed(Provider<Item> provider, Item element) {
+        super.removed(provider, element);
+        for (RegistryHook<Item> registryHook : registryHooks) {
+            registryHook.afterRemoving(element);
+        }
+        if (provider instanceof ManagedItemProvider) {
+            // remove our metadata for that item
+            logger.debug("Item {} was removed, trying to clean up corresponding metadata", element.getUID());
+            metadataRegistry.removeItemMetadata(element.getName());
+        }
+    }
+
+    @Override
+    protected void removeProvider(Provider<Item> provider) {
+        super.removeProvider(provider);
+        for (Item element : provider.getAll()) {
+            for (RegistryHook<Item> registryHook : registryHooks) {
+                registryHook.afterRemoving(element);
+            }
+        }
+    }
+
+    @Override
+    public void addRegistryHook(RegistryHook<Item> hook) {
+        registryHooks.add(hook);
+    }
+
+    @Override
+    public void removeRegistryHook(RegistryHook<Item> hook) {
+        registryHooks.remove(hook);
+    }
+
+    @Activate
     protected void activate(final ComponentContext componentContext) {
         super.activate(componentContext.getBundleContext());
-        stateDescriptionProviderTracker = new StateDescriptionProviderTracker(componentContext.getBundleContext());
-        stateDescriptionProviderTracker.open();
     }
 
     @Override
     protected void deactivate() {
-        stateDescriptionProviderTracker.close();
-        stateDescriptionProviderTracker = null;
         super.deactivate();
     }
 
-    private final class StateDescriptionProviderTracker
-            extends ServiceTracker<StateDescriptionProvider, StateDescriptionProvider> {
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
+    protected void setStateDescriptionService(StateDescriptionService stateDescriptionService) {
+        this.stateDescriptionService = stateDescriptionService;
 
-        public StateDescriptionProviderTracker(BundleContext context) {
-            super(context, StateDescriptionProvider.class.getName(), null);
+        for (Item item : getItems()) {
+            ((GenericItem) item).setStateDescriptionService(stateDescriptionService);
         }
+    }
 
-        @Override
-        public StateDescriptionProvider addingService(ServiceReference<StateDescriptionProvider> reference) {
-            StateDescriptionProvider provider = context.getService(reference);
+    protected void unsetStateDescriptionService(StateDescriptionService stateDescriptionService) {
+        this.stateDescriptionService = null;
 
-            Object serviceRanking = reference.getProperty(Constants.SERVICE_RANKING);
-            if (serviceRanking instanceof Integer) {
-                stateDescriptionProviderRanking.put(provider.getClass().getName(), (Integer) serviceRanking);
-            } else {
-                stateDescriptionProviderRanking.put(provider.getClass().getName(), 0);
-            }
-
-            synchronized (stateDescriptionProviders) {
-                stateDescriptionProviders.add(provider);
-
-                Collections.sort(stateDescriptionProviders, new Comparator<StateDescriptionProvider>() {
-                    // sort providers by service ranking in a descending order
-                    @Override
-                    public int compare(StateDescriptionProvider provider1, StateDescriptionProvider provider2) {
-                        return stateDescriptionProviderRanking.get(provider2.getClass().getName())
-                                .compareTo(stateDescriptionProviderRanking.get(provider1.getClass().getName()));
-                    }
-                });
-
-                for (Item item : getItems()) {
-                    ((GenericItem) item).setStateDescriptionProviders(stateDescriptionProviders);
-                }
-            }
-            return provider;
+        for (Item item : getItems()) {
+            ((GenericItem) item).setStateDescriptionService(null);
         }
+    }
 
-        @Override
-        public void removedService(ServiceReference<StateDescriptionProvider> reference,
-                StateDescriptionProvider service) {
-            stateDescriptionProviders.remove(service);
-            stateDescriptionProviderRanking.remove(service.getClass().getName());
-            for (Item item : getItems()) {
-                ((GenericItem) item).setStateDescriptionProviders(stateDescriptionProviders);
-            }
-        }
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
+    protected void setManagedProvider(ManagedItemProvider provider) {
+        super.setManagedProvider(provider);
+    }
+
+    protected void unsetManagedProvider(ManagedItemProvider provider) {
+        super.unsetManagedProvider(provider);
+    }
+
+    @Reference
+    protected void setMetadataRegistry(MetadataRegistry metadataRegistry) {
+        this.metadataRegistry = metadataRegistry;
+    }
+
+    protected void unsetMetadataRegistry(MetadataRegistry metadataRegistry) {
+        this.metadataRegistry = null;
     }
 
 }

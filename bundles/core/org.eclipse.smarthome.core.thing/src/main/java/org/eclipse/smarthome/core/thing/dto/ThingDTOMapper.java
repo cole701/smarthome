@@ -1,19 +1,28 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.dto;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import org.eclipse.smarthome.config.core.Configuration;
 import org.eclipse.smarthome.core.thing.Channel;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
 import org.eclipse.smarthome.core.thing.ThingUID;
+import org.eclipse.smarthome.core.thing.binding.builder.BridgeBuilder;
 import org.eclipse.smarthome.core.thing.binding.builder.ThingBuilder;
 import org.eclipse.smarthome.core.thing.util.ThingHelper;
 
@@ -40,22 +49,42 @@ public class ThingDTOMapper {
 
         String thingTypeUID = thing.getThingTypeUID().getAsString();
         String thingUID = thing.getUID().toString();
-        String bridgeUID = thing.getBridgeUID() != null ? thing.getBridgeUID().toString() : null;
+        final ThingUID bridgeUID = thing.getBridgeUID();
 
-        return new ThingDTO(thingTypeUID, thingUID, thing.getLabel(), bridgeUID, channelDTOs, thing.getConfiguration(),
-                thing.getProperties(), thing.getLocation());
+        return new ThingDTO(thingTypeUID, thingUID, thing.getLabel(), bridgeUID != null ? bridgeUID.toString() : null,
+                channelDTOs, toMap(thing.getConfiguration()), thing.getProperties(), thing.getLocation());
     }
 
     /**
      * Maps thing DTO into thing
      *
      * @param thingDTO the thingDTO
-     * @return the corresponding thing 
+     * @param isBridge flag if the thing DTO identifies a bridge
+     * @return the corresponding thing
      */
-    public static Thing map(ThingDTO thingDTO) {
-    	ThingUID thingUID = new ThingUID(thingDTO.UID);
-    	ThingTypeUID thingTypeUID = thingDTO.thingTypeUID==null ? new ThingTypeUID("") : new ThingTypeUID(thingDTO.thingTypeUID);
-    	Thing thing = ThingBuilder.create(thingTypeUID, thingUID).build();    	
-    	return ThingHelper.merge(thing, thingDTO);
+    public static Thing map(ThingDTO thingDTO, boolean isBridge) {
+        ThingUID thingUID = new ThingUID(thingDTO.UID);
+        ThingTypeUID thingTypeUID = thingDTO.thingTypeUID == null ? new ThingTypeUID("")
+                : new ThingTypeUID(thingDTO.thingTypeUID);
+        final Thing thing;
+        if (isBridge) {
+            thing = BridgeBuilder.create(thingTypeUID, thingUID).build();
+        } else {
+            thing = ThingBuilder.create(thingTypeUID, thingUID).build();
+        }
+        return ThingHelper.merge(thing, thingDTO);
     }
+
+    private static Map<String, Object> toMap(Configuration configuration) {
+        if (configuration == null) {
+            return null;
+        }
+
+        Map<String, Object> configurationMap = new HashMap<>(configuration.keySet().size());
+        for (String key : configuration.keySet()) {
+            configurationMap.put(key, configuration.get(key));
+        }
+        return configurationMap;
+    }
+
 }

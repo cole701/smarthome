@@ -1,21 +1,28 @@
 Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Eclipse SmartHome Thing Model Tests
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-SymbolicName: org.eclipse.smarthome.model.thing.tests; singleton:
+ =true
 Bundle-Vendor: Eclipse.org/SmartHome
-Bundle-Version: 0.9.0.qualifier
-Bundle-SymbolicName: org.eclipse.smarthome.model.thing.tests; singleton:=true
-Require-Bundle: org.eclipse.core.runtime
-Import-Package: groovy.lang,
+Bundle-Version: 0.11.0.qualifier
+Export-Package: org.eclipse.smarthome.model.thing
+Fragment-Host: org.eclipse.smarthome.model.thing
+Import-Package: 
+ javax.measure,
+ javax.measure.quantity,
  org.apache.log4j,
- org.codehaus.groovy.reflection,
- org.codehaus.groovy.runtime,
- org.codehaus.groovy.runtime.callsite,
- org.codehaus.groovy.runtime.typehandling,
+ org.eclipse.jdt.annotation;resolution:=optional,
+ org.eclipse.smarthome.config.core,
  org.eclipse.smarthome.core.events,
+ org.eclipse.smarthome.core.thing,
+ org.eclipse.smarthome.core.thing.dto,
  org.eclipse.smarthome.core.thing.events,
  org.eclipse.smarthome.core.thing.util,
  org.eclipse.smarthome.core.types,
+ org.eclipse.smarthome.model.thing,
  org.eclipse.smarthome.test,
+ org.eclipse.smarthome.test.java,
  org.hamcrest;core=split,
  org.hamcrest.core,
  org.junit;version="4.0.0",
@@ -24,11 +31,13 @@ Import-Package: groovy.lang,
  org.junit.runner.notification;version="4.0.0",
  org.junit.runners;version="4.0.0",
  org.junit.runners.model;version="4.0.0",
- org.osgi.service.component;version="1.2.2"
-Bundle-RequiredExecutionEnvironment: JavaSE-1.8
-Fragment-Host: org.eclipse.smarthome.model.thing
-Export-Package: org.eclipse.smarthome.model.thing
-Service-Component: OSGI-INF/HueThingHandlerFactory.xml,
- OSGI-INF/HueThingTypeProvider.xml,
- OSGI-INF/DumbThingTypeProvider.xml
- 
+ org.mockito,
+ org.mockito.invocation,
+ org.mockito.junit,
+ org.mockito.stubbing,
+ org.mockito.verification,
+ org.osgi.service.component
+Require-Bundle: 
+ org.eclipse.core.runtime
+Service-Component: OSGI-INF/*.xml
+Automatic-Module-Name: org.eclipse.smarthome.model.thing.tests

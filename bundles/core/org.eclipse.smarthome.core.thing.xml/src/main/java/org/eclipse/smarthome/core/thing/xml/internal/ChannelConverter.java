@@ -1,19 +1,26 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.xml.internal;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import org.eclipse.smarthome.config.xml.util.ConverterAttributeMapValidator;
 import org.eclipse.smarthome.config.xml.util.GenericUnmarshaller;
 import org.eclipse.smarthome.config.xml.util.NodeIterator;
 import org.eclipse.smarthome.config.xml.util.NodeValue;
+import org.eclipse.smarthome.core.thing.type.AutoUpdatePolicy;
 
 import com.thoughtworks.xstream.converters.ConversionException;
 import com.thoughtworks.xstream.converters.Converter;
@@ -26,20 +33,20 @@ import com.thoughtworks.xstream.io.HierarchicalStreamReader;
  * into a {@link ChannelXmlResult} object.
  * <p>
  * This converter converts {@code channel} XML tags.
- * 
+ *
  * @author Chris Jackson - Initial Contribution
  * @author Simon Kaufmann - Fixing wrong inheritance
  * @author Chris Jackson - Added label and description
  */
 public class ChannelConverter extends GenericUnmarshaller<ChannelXmlResult> {
 
-    private ConverterAttributeMapValidator attributeMapValidator;
+    private final ConverterAttributeMapValidator attributeMapValidator;
 
     public ChannelConverter() {
         super(ChannelXmlResult.class);
 
-        attributeMapValidator = new ConverterAttributeMapValidator(new String[][] { { "id", "true" },
-                { "typeId", "false" } });
+        attributeMapValidator = new ConverterAttributeMapValidator(
+                new String[][] { { "id", "true" }, { "typeId", "false" } });
     }
 
     @SuppressWarnings("unchecked")
@@ -49,16 +56,25 @@ public class ChannelConverter extends GenericUnmarshaller<ChannelXmlResult> {
 
     protected ChannelXmlResult unmarshalType(HierarchicalStreamReader reader, UnmarshallingContext context,
             Map<String, String> attributes, NodeIterator nodeIterator) throws ConversionException {
-
         String id = attributes.get("id");
         String typeId = attributes.get("typeId");
         String label = (String) nodeIterator.nextValue("label", false);
         String description = (String) nodeIterator.nextValue("description", false);
         List<NodeValue> properties = getProperties(nodeIterator);
+        AutoUpdatePolicy autoUpdatePolicy = readAutoUpdatePolicy(nodeIterator);
 
-        ChannelXmlResult channelXmlResult = new ChannelXmlResult(id, typeId, label, description, properties);
+        ChannelXmlResult channelXmlResult = new ChannelXmlResult(id, typeId, label, description, properties,
+                autoUpdatePolicy);
 
         return channelXmlResult;
+    }
+
+    private AutoUpdatePolicy readAutoUpdatePolicy(NodeIterator nodeIterator) {
+        String string = (String) nodeIterator.nextValue("autoUpdatePolicy", false);
+        if (string != null) {
+            return AutoUpdatePolicy.valueOf(string.toUpperCase(Locale.ENGLISH));
+        }
+        return null;
     }
 
     @Override

@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.items;
 
@@ -37,7 +42,7 @@ public interface GroupFunction {
      * @param stateClass the type in which the state should be returned
      * @return the calculated group state of the requested type or null, if type is not supported
      */
-    State getStateAs(Set<Item> items, Class<? extends State> stateClass);
+    <T extends State> T getStateAs(Set<Item> items, Class<T> stateClass);
 
     /**
      * Returns the parameters of the function as an array.
@@ -55,9 +60,6 @@ public interface GroupFunction {
      */
     static class Equality implements GroupFunction {
 
-        /**
-         * @{inheritDoc
-         */
         @Override
         public State calculate(Set<Item> items) {
             if (items.size() > 0) {
@@ -74,14 +76,11 @@ public interface GroupFunction {
             }
         }
 
-        /**
-         * @{inheritDoc
-         */
         @Override
-        public State getStateAs(Set<Item> items, Class<? extends State> stateClass) {
+        public <T extends State> T getStateAs(Set<Item> items, Class<T> stateClass) {
             State state = calculate(items);
             if (stateClass.isInstance(state)) {
-                return state;
+                return stateClass.cast(state);
             } else {
                 return null;
             }

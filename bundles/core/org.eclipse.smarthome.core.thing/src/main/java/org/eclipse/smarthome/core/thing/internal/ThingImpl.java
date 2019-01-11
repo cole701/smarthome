@@ -1,19 +1,29 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.internal;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.config.core.Configuration;
 import org.eclipse.smarthome.core.thing.Channel;
+import org.eclipse.smarthome.core.thing.ChannelUID;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingStatus;
 import org.eclipse.smarthome.core.thing.ThingStatusDetail;
@@ -22,10 +32,6 @@ import org.eclipse.smarthome.core.thing.ThingTypeUID;
 import org.eclipse.smarthome.core.thing.ThingUID;
 import org.eclipse.smarthome.core.thing.binding.ThingHandler;
 import org.eclipse.smarthome.core.thing.binding.builder.ThingStatusInfoBuilder;
-
-import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 /**
  * The {@link ThingImpl} class is a concrete implementation of the {@link Thing}.
@@ -40,31 +46,36 @@ import com.google.common.collect.ImmutableMap;
  * @author Simon Kaufmann - Added label
  *
  */
+@NonNullByDefault
 public class ThingImpl implements Thing {
 
-    private String label;
+    private @Nullable String label;
 
-    private ThingUID bridgeUID;
+    private @Nullable ThingUID bridgeUID;
 
-    private List<Channel> channels;
+    private List<Channel> channels = new ArrayList<>(0);
 
     private Configuration configuration = new Configuration();
 
     private Map<String, String> properties = new HashMap<>();
 
+    @NonNullByDefault({})
     private ThingUID uid;
 
+    @NonNullByDefault({})
     private ThingTypeUID thingTypeUID;
 
-    private String location;
+    private @Nullable String location;
 
-    transient volatile private ThingStatusInfo status = ThingStatusInfoBuilder
+    private transient volatile ThingStatusInfo status = ThingStatusInfoBuilder
             .create(ThingStatus.UNINITIALIZED, ThingStatusDetail.NONE).build();
 
-    transient volatile private ThingHandler thingHandler;
+    private transient volatile @Nullable ThingHandler thingHandler;
 
     /**
      * Package protected default constructor to allow reflective instantiation.
+     *
+     * !!! DO NOT REMOVE - Gson needs it !!!
      */
     ThingImpl() {
     }
@@ -77,7 +88,6 @@ public class ThingImpl implements Thing {
     public ThingImpl(ThingTypeUID thingTypeUID, String thingId) throws IllegalArgumentException {
         this.uid = new ThingUID(thingTypeUID.getBindingId(), thingTypeUID.getId(), thingId);
         this.thingTypeUID = thingTypeUID;
-        this.channels = new ArrayList<>(0);
     }
 
     /**
@@ -93,7 +103,6 @@ public class ThingImpl implements Thing {
         }
         this.uid = thingUID;
         this.thingTypeUID = new ThingTypeUID(thingUID.getBindingId(), thingUID.getThingTypeId());
-        this.channels = new ArrayList<>(0);
     }
 
     /**
@@ -104,31 +113,41 @@ public class ThingImpl implements Thing {
     public ThingImpl(ThingTypeUID thingTypeUID, ThingUID thingUID) throws IllegalArgumentException {
         this.uid = thingUID;
         this.thingTypeUID = thingTypeUID;
-        this.channels = new ArrayList<>(0);
     }
 
     @Override
-    public String getLabel() {
+    public @Nullable String getLabel() {
         return label;
     }
 
     @Override
-    public void setLabel(String label) {
+    public void setLabel(@Nullable String label) {
         this.label = label;
     }
 
     @Override
-    public ThingUID getBridgeUID() {
+    public @Nullable ThingUID getBridgeUID() {
         return this.bridgeUID;
     }
 
     @Override
     public List<Channel> getChannels() {
-        return ImmutableList.copyOf(this.channels);
+        return Collections.unmodifiableList(new ArrayList<>(this.channels));
     }
 
     @Override
-    public Channel getChannel(String channelId) {
+    public List<Channel> getChannelsOfGroup(String channelGroupId) {
+        List<Channel> channels = new ArrayList<>();
+        for (Channel channel : this.channels) {
+            if (channelGroupId.equals(channel.getUID().getGroupId())) {
+                channels.add(channel);
+            }
+        }
+        return Collections.unmodifiableList(channels);
+    }
+
+    @Override
+    public @Nullable Channel getChannel(String channelId) {
         for (Channel channel : this.channels) {
             if (channel.getUID().getId().equals(channelId)) {
                 return channel;
@@ -147,7 +166,7 @@ public class ThingImpl implements Thing {
     }
 
     @Override
-    public ThingHandler getHandler() {
+    public @Nullable ThingHandler getHandler() {
         return this.thingHandler;
     }
 
@@ -167,7 +186,7 @@ public class ThingImpl implements Thing {
     }
 
     @Override
-    public void setBridgeUID(ThingUID bridgeUID) {
+    public void setBridgeUID(@Nullable ThingUID bridgeUID) {
         this.bridgeUID = bridgeUID;
     }
 
@@ -175,12 +194,12 @@ public class ThingImpl implements Thing {
         this.channels = channels;
     }
 
-    public void setConfiguration(Configuration configuration) {
+    public void setConfiguration(@Nullable Configuration configuration) {
         this.configuration = (configuration == null) ? new Configuration() : configuration;
     }
 
     @Override
-    public void setHandler(ThingHandler thingHandler) {
+    public void setHandler(@Nullable ThingHandler thingHandler) {
         this.thingHandler = thingHandler;
     }
 
@@ -205,13 +224,13 @@ public class ThingImpl implements Thing {
     @Override
     public Map<String, String> getProperties() {
         synchronized (this) {
-            return ImmutableMap.copyOf(properties);
+            return Collections.unmodifiableMap(new HashMap<>(properties));
         }
     }
 
     @Override
-    public String setProperty(String name, String value) {
-        if (Strings.isNullOrEmpty(name)) {
+    public @Nullable String setProperty(String name, @Nullable String value) {
+        if (StringUtils.isEmpty(name)) {
             throw new IllegalArgumentException("Property name must not be null or empty");
         }
         synchronized (this) {
@@ -228,13 +247,18 @@ public class ThingImpl implements Thing {
     }
 
     @Override
-    public String getLocation() {
+    public @Nullable String getLocation() {
         return location;
     }
 
     @Override
-    public void setLocation(String location) {
+    public void setLocation(@Nullable String location) {
         this.location = location;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return ThingStatusDetail.DISABLED != getStatusInfo().getStatusDetail();
     }
 
     @Override
@@ -246,7 +270,7 @@ public class ThingImpl implements Thing {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (this == obj) {
             return true;
         }

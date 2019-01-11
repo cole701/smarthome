@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.xml.internal;
 
@@ -47,22 +52,21 @@ public class StateDescriptionConverter extends GenericUnmarshaller<StateDescript
 
     private BigDecimal toBigDecimal(Map<String, String> attributes, String attribute, BigDecimal defaultValue)
             throws ConversionException {
-
         String attrValueText = attributes.get(attribute);
 
         if (attrValueText != null) {
             try {
                 return new BigDecimal(attrValueText);
             } catch (NumberFormatException nfe) {
-                throw new ConversionException("The attribute '" + attribute
-                        + "' has not a valid decimal number format!", nfe);
+                throw new ConversionException(
+                        "The attribute '" + attribute + "' has not a valid decimal number format!", nfe);
             }
         }
 
         return defaultValue;
     }
 
-    private boolean toBoolean(Map<String, String> attributes, String attribute, boolean defaultValue) {
+    private boolean toBoolean(Map<String, String> attributes, String attribute, Boolean defaultValue) {
         String attrValueText = attributes.get(attribute);
 
         if (attrValueText != null) {
@@ -73,7 +77,6 @@ public class StateDescriptionConverter extends GenericUnmarshaller<StateDescript
     }
 
     private List<StateOption> toListOfChannelState(NodeList nodeList) throws ConversionException {
-
         if ("options".equals(nodeList.getNodeName())) {
             List<StateOption> stateOptions = new ArrayList<>();
 

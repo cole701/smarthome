@@ -1,14 +1,23 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.type;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Locale;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 
 /**
  * The {@link ChannelTypeProvider} is responsible for providing channel types.
@@ -17,25 +26,36 @@ import java.util.Locale;
  *
  * @author Dennis Nobel - Initial contribution
  */
+@NonNullByDefault
 public interface ChannelTypeProvider {
 
     /**
      * @see ChannelTypeRegistry#getChannelTypes(Locale)
      */
-    Collection<ChannelType> getChannelTypes(Locale locale);
+    @Nullable
+    Collection<ChannelType> getChannelTypes(@Nullable Locale locale);
 
     /**
      * @see ChannelTypeRegistry#getChannelType(ChannelTypeUID, Locale)
      */
-    ChannelType getChannelType(ChannelTypeUID channelTypeUID, Locale locale);
+    @Nullable
+    ChannelType getChannelType(ChannelTypeUID channelTypeUID, @Nullable Locale locale);
 
     /**
-     * @see ChannelTypeRegistry#getChannelGroupType(ChannelGroupTypeUID, Locale)
+     * @deprecated The {@link ChannelGroupTypeProvider} is now to be implemented/used instead.
      */
-    ChannelGroupType getChannelGroupType(ChannelGroupTypeUID channelGroupTypeUID, Locale locale);
+    @Deprecated
+    @Nullable
+    default ChannelGroupType getChannelGroupType(ChannelGroupTypeUID channelGroupTypeUID, @Nullable Locale locale) {
+        return null;
+    }
 
     /**
-     * @see ChannelTypeRegistry#getChannelGroupTypes(Locale)
+     * @deprecated The {@link ChannelGroupTypeProvider} is now to be implemented/used instead.
      */
-    Collection<ChannelGroupType> getChannelGroupTypes(Locale locale);
+    @Deprecated
+    @Nullable
+    default Collection<ChannelGroupType> getChannelGroupTypes(@Nullable Locale locale) {
+        return Collections.emptyList();
+    }
 }

@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.type;
 
@@ -14,7 +19,8 @@ import org.eclipse.smarthome.automation.Module;
 import org.eclipse.smarthome.automation.Rule;
 
 /**
- * This class defines meta-information properties, used by the Rule Engine when creating connections between modules.
+ * This class defines meta-information properties, used by the Rule Engine when creating connections between
+ * modules.
  * {@link Output}s are the exit point of a {@link Module}. They are used as data source for {@link Input}s of other
  * {@link Module}s.
  * <p>
@@ -55,10 +61,9 @@ public class Output {
      * This field is associated with the {@code Output}. The tags add additional restrictions to connections between
      * {@link Input}s and {@link Output}s. The {@link Input}'s tags must be subset of the {@code Output}'s tags to
      * succeed the connection.</br>
-     * For example: When we want to connect {@link Input} to {@code Output} and both have
-     * same java.lang.double data type. The the output has assign "temperature" and "celsius" tags then the input must
-     * have at least one of these output's tags (i.e. "temperature") to connect this input to the selected
-     * {@code Output}.
+     * For example: When we want to connect {@link Input} to {@code Output} and both have same java.lang.double data
+     * type. The the output has assign "temperature" and "celsius" tags then the input must have at least one of these
+     * output's tags (i.e. "temperature") to connect this input to the selected {@code Output}.
      */
     private Set<String> tags;
 
@@ -104,21 +109,21 @@ public class Output {
     /**
      * Constructs an {@code Output} instance with the specified parameters.
      *
-     * @param name a unique name of the {@code Output}.
-     * @param type the type of the output data.
-     * @param label a single word description of the {@code Output}.
-     * @param description is an user friendly description of the {@code Output}.
-     * @param tags are associated with the {@code Output}. The tags add additional restrictions to connections between
-     *            {@link Input}s and {@link Output}s. The {@link Input}'s tags must be subset of the {@code Output}'s
-     *            tags to succeed the connection.</br>
-     *            For example: When we want to connect {@link Input} to
-     *            {@code Output} and both have same java.lang.double data type. The the output has assign "temperature"
-     *            and "celsius" tags then the input must have at least one of these output's tags (i.e. "temperature")
-     *            to connect this input to the selected {@code Output}.
-     * @param reference refers to the data source. It defines what part of complex data should be used as source of
-     *            this {@code Output}.
+     * @param name         a unique name of the {@code Output}.
+     * @param type         the type of the output data.
+     * @param label        a single word description of the {@code Output}.
+     * @param description  is an user friendly description of the {@code Output}.
+     * @param tags         are associated with the {@code Output}. The tags add additional restrictions to connections
+     *                     between {@link Input}s and {@link Output}s. The {@link Input}'s tags must be subset of the
+     *                     {@code Output}'s tags to succeed the connection.<br>
+     *                     For example: When we want to connect {@link Input} to
+     *                     {@code Output} and both have same java.lang.double data type. The the output has assign
+     *                     "temperature" and "celsius" tags then the input must have at least one of these output's tags
+     *                     (i.e. "temperature") to connect this input to the selected {@code Output}.
+     * @param reference    refers to the data source. It defines what part of complex data should be used as source of
+     *                     this {@code Output}.
      * @param defaultValue takes place when there is no runtime value for this {@code Output}. Type of the default value
-     *            must be the type of the {@code Output}.
+     *                     must be the type of the {@code Output}.
      * @throws IllegalArgumentException If one of the name or type parameters is null.
      */
     public Output(String name, String type, String label, String description, Set<String> tags, String reference,
@@ -191,11 +196,11 @@ public class Output {
     /**
      * This method is used for getting the tags of the {@code Output}. The tags add additional restrictions to
      * connections between {@link Input}s and {@code Output}s. The input tags must be subset of the output tags to
-     * succeed the connection.</br>
-     * For example: When we want to connect {@link Input} to {@code Output} and they both
-     * have same data type - java.lang.double and the {@link Output} has assign "temperature" and "celsius" tags, then
-     * the {@link Input} must have at least one of these {@code Output}'s tags (i.e. "temperature") to connect this
-     * {@link Input} to the selected {@code Output}.
+     * succeed the connection.<br>
+     * For example: When we want to connect {@link Input} to {@code Output} and they both have same data type -
+     * java.lang.double and the {@link Output} has assign "temperature" and "celsius" tags, then the {@link Input} must
+     * have at least one of these {@code Output}'s tags (i.e. "temperature") to connect this {@link Input} to the
+     * selected {@code Output}.
      *
      * @return the tags, associated with this {@link Input}.
      */

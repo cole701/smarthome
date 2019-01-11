@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.internal.commands;
 
@@ -91,7 +96,6 @@ public class Printer {
      * @return
      */
     static String printRules(AutomationCommandsPluggable autoCommands, Map<String, String> ruleUIDs) {
-
         int[] columnWidths = new int[] { COLUMN_ID, COLUMN_RULE_UID, COLUMN_RULE_NAME, COLUMN_RULE_STATUS };
         List<String> columnValues = new ArrayList<String>();
         columnValues.add(ID);
@@ -121,7 +125,6 @@ public class Printer {
      * @return a formated string, representing the sorted list with indexed UIDs of the available {@link Template}s.
      */
     static String printTemplates(Map<String, String> templateUIDs) {
-
         int[] columnWidths = new int[] { COLUMN_ID, COLUMN_UID };
         List<String> columnTitles = new ArrayList<String>();
         columnTitles.add(ID);
@@ -140,7 +143,6 @@ public class Printer {
      * @return a formated string, representing the sorted list with indexed UIDs of the available {@link ModuleType}s.
      */
     static String printModuleTypes(Map<String, String> moduleTypeUIDs) {
-
         int[] columnWidths = new int[] { COLUMN_ID, COLUMN_UID };
         List<String> columnTitles = new ArrayList<String>();
         columnTitles.add(ID);
@@ -159,7 +161,6 @@ public class Printer {
      * @return a formated string, representing the {@link Rule} info.
      */
     static String printRule(Rule rule, RuleStatus status) {
-
         int[] columnWidths = new int[] { TABLE_WIDTH };
         List<String> ruleProperty = new ArrayList<String>();
         ruleProperty.add(rule.getUID() + " [ " + status + " ]");
@@ -202,7 +203,6 @@ public class Printer {
      * @return a formated string, representing the {@link Template} info.
      */
     static String printTemplate(Template template) {
-
         int[] columnWidths = new int[] { TABLE_WIDTH };
         List<String> templateProperty = new ArrayList<String>();
         templateProperty.add(template.getUID());
@@ -247,7 +247,6 @@ public class Printer {
      * @return a formated string, representing the {@link ModuleType} info.
      */
     static String printModuleType(ModuleType moduleType) {
-
         int[] columnWidths = new int[] { TABLE_WIDTH };
         List<String> moduleTypeProperty = new ArrayList<String>();
         moduleTypeProperty.add(moduleType.getUID());
@@ -396,7 +395,6 @@ public class Printer {
      * @return a formated string, representing the {@link Module}.
      */
     private static List<String> getModuleRecords(Module module) {
-
         int[] columnWidths = new int[] { COLUMN_PROPERTY_VALUE };
         List<String> columnValues = new ArrayList<String>();
         columnValues.add(module.getId());

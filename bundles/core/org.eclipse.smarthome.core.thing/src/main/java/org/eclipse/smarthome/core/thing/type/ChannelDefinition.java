@@ -1,16 +1,22 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.type;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.thing.Channel;
 import org.eclipse.smarthome.core.thing.Thing;
 
@@ -25,24 +31,27 @@ import org.eclipse.smarthome.core.thing.Thing;
  * @author Chris Jackson - Added properties and label/description
  * @author Dennis Nobel - Introduced ChannelTypeRegistry and channel type references
  */
+@NonNullByDefault
 public class ChannelDefinition {
 
-    private String id;
-    private ChannelTypeUID channelTypeUID;
+    private final String id;
+    private final ChannelTypeUID channelTypeUID;
     private final Map<String, String> properties;
-    private final String label;
-    private final String description;
+    private final @Nullable String label;
+    private final @Nullable String description;
+    private final @Nullable AutoUpdatePolicy autoUpdatePolicy;
 
     /**
      * Creates a new instance of this class with the specified parameters.
      *
      * @param id the identifier of the channel (must neither be null nor empty)
      * @param channelTypeUID the type UID of the channel (must not be null)
-     *
      * @throws IllegalArgumentException if the ID is null or empty, or the type is null
+     * @deprecated use the builder
      */
+    @Deprecated
     public ChannelDefinition(String id, ChannelTypeUID channelTypeUID) throws IllegalArgumentException {
-        this(id, channelTypeUID, null, null, null);
+        this(id, channelTypeUID, (String) null, (String) null, null, null);
     }
 
     /**
@@ -53,11 +62,37 @@ public class ChannelDefinition {
      * @param properties the properties this Channel provides (could be null)
      * @param label the label for the channel to override channelType (could be null)
      * @param description the description for the channel to override channelType (could be null)
-     *
      * @throws IllegalArgumentException if the ID is null or empty, or the type is null
+     * @deprecated use the builder
      */
-    public ChannelDefinition(String id, ChannelTypeUID channelTypeUID, Map<String, String> properties, String label,
-            String description) throws IllegalArgumentException {
+    @Deprecated
+    public ChannelDefinition(String id, ChannelTypeUID channelTypeUID, @Nullable Map<String, String> properties,
+            @Nullable String label, @Nullable String description) throws IllegalArgumentException {
+        this(id, channelTypeUID, label, description, properties, null);
+    }
+
+    /**
+     * Creates a new instance of this class with the specified parameters.
+     *
+     * @param id the identifier of the channel (must neither be null nor empty)
+     * @param channelTypeUID the type UID of the channel (must not be null)
+     * @param properties the properties this Channel provides (could be null)
+     * @param label the label for the channel to override channelType (could be null)
+     * @param description the description for the channel to override channelType (could be null)
+     * @param autoUpdatePolicy the auto update policy for the channel to override from the thing type (could be null)
+     * @throws IllegalArgumentException if the ID is null or empty, or the type is null
+     * @deprecated use the builder
+     */
+    @Deprecated
+    public ChannelDefinition(String id, ChannelTypeUID channelTypeUID, @Nullable Map<String, String> properties,
+            @Nullable String label, @Nullable String description, @Nullable AutoUpdatePolicy autoUpdatePolicy)
+            throws IllegalArgumentException {
+        this(id, channelTypeUID, label, description, properties, autoUpdatePolicy);
+    }
+
+    ChannelDefinition(String id, ChannelTypeUID channelTypeUID, @Nullable String label, @Nullable String description,
+            @Nullable Map<String, String> properties, @Nullable AutoUpdatePolicy autoUpdatePolicy)
+            throws IllegalArgumentException {
         if ((id == null) || (id.isEmpty())) {
             throw new IllegalArgumentException("The ID must neither be null nor empty!");
         }
@@ -69,13 +104,14 @@ public class ChannelDefinition {
         if (properties != null) {
             this.properties = Collections.unmodifiableMap(properties);
         } else {
-            this.properties = Collections.unmodifiableMap(new HashMap<String, String>(0));
+            this.properties = Collections.emptyMap();
         }
 
         this.id = id;
         this.channelTypeUID = channelTypeUID;
         this.label = label;
         this.description = description;
+        this.autoUpdatePolicy = autoUpdatePolicy;
     }
 
     /**
@@ -102,7 +138,7 @@ public class ChannelDefinition {
      *
      * @return the label for the channel. Can be null.
      */
-    public String getLabel() {
+    public @Nullable String getLabel() {
         return this.label;
     }
 
@@ -113,17 +149,26 @@ public class ChannelDefinition {
      *
      * @return the description for the channel. Can be null.
      */
-    public String getDescription() {
+    public @Nullable String getDescription() {
         return this.description;
     }
 
     /**
      * Returns the properties for this {@link ChannelDefinition}
      *
-     * @return the properties for this {@link ChannelDefinition} (not null)
+     * @return the unmodfiable properties for this {@link ChannelDefinition} (not null)
      */
     public Map<String, String> getProperties() {
         return properties;
+    }
+
+    /**
+     * Returns the {@link AutoUpdatePolicy} to use for this channel.
+     *
+     * @return the auto update policy
+     */
+    public @Nullable AutoUpdatePolicy getAutoUpdatePolicy() {
+        return autoUpdatePolicy;
     }
 
     @Override

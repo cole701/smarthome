@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.hue.internal;
 
@@ -18,48 +23,51 @@ import java.util.Map;
  * @author Denis Dudnik - moved Jue library source code inside the smarthome Hue binding
  */
 public class FullConfig {
-	private Map<String, FullLight> lights;
-	private Map<String, FullGroup> groups;
-	private Config config;
-	
-	/**
-	 * Returns detailed information about all lights known to the bridge.
-	 * @return detailed lights list
-	 */
-	public List<FullLight> getLights() {
-		ArrayList<FullLight> lightsList = new ArrayList<FullLight>();
-		
-		for (String id : lights.keySet()) {
-			FullLight light = lights.get(id);
-			light.setId(id);
-			lightsList.add(light);
-		}
-		
-		return lightsList;
-	}
-	
-	/**
-	 * Returns detailed information about all groups on the bridge.
-	 * @return detailed groups list
-	 */
-	public List<FullGroup> getGroups() {		
-		ArrayList<FullGroup> groupsList = new ArrayList<FullGroup>();
-		
-		for (String id : groups.keySet()) {
-			FullGroup group = groups.get(id);
-			group.setId(id);
-			groupsList.add(group);
-		}
-		
-		return groupsList;
-	}
-	
-	/**
-	 * Returns bridge configuration.
-	 * Use HueBridge.getConfig() if you only need this.
-	 * @return bridge configuration
-	 */
-	public Config getConfig() {
-		return config;
-	}
+    private Map<String, FullLight> lights;
+    private Map<String, FullGroup> groups;
+    private Config config;
+
+    /**
+     * Returns detailed information about all lights known to the bridge.
+     *
+     * @return detailed lights list
+     */
+    public List<FullLight> getLights() {
+        ArrayList<FullLight> lightsList = new ArrayList<>();
+
+        for (String id : lights.keySet()) {
+            FullLight light = lights.get(id);
+            light.setId(id);
+            lightsList.add(light);
+        }
+
+        return lightsList;
+    }
+
+    /**
+     * Returns detailed information about all groups on the bridge.
+     *
+     * @return detailed groups list
+     */
+    public List<FullGroup> getGroups() {
+        ArrayList<FullGroup> groupsList = new ArrayList<>();
+
+        for (String id : groups.keySet()) {
+            FullGroup group = groups.get(id);
+            group.setId(id);
+            groupsList.add(group);
+        }
+
+        return groupsList;
+    }
+
+    /**
+     * Returns bridge configuration.
+     * Use HueBridge.getConfig() if you only need this.
+     *
+     * @return bridge configuration
+     */
+    public Config getConfig() {
+        return config;
+    }
 }

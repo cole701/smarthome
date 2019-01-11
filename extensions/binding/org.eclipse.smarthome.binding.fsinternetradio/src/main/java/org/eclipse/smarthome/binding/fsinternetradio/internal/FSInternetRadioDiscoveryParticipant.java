@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.fsinternetradio.internal;
 
@@ -17,7 +22,7 @@ import java.util.Set;
 
 import org.eclipse.smarthome.config.discovery.DiscoveryResult;
 import org.eclipse.smarthome.config.discovery.DiscoveryResultBuilder;
-import org.eclipse.smarthome.config.discovery.UpnpDiscoveryParticipant;
+import org.eclipse.smarthome.config.discovery.upnp.UpnpDiscoveryParticipant;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
 import org.eclipse.smarthome.core.thing.ThingUID;
 import org.jupnp.model.meta.DeviceDetails;
@@ -25,6 +30,7 @@ import org.jupnp.model.meta.ManufacturerDetails;
 import org.jupnp.model.meta.ModelDetails;
 import org.jupnp.model.meta.RemoteDevice;
 import org.jupnp.model.meta.RemoteDeviceIdentity;
+import org.osgi.service.component.annotations.Component;
 
 /**
  * This is the discovery service for internet radios based on the fontier silicon chipset. Unfortunately, it is not
@@ -35,6 +41,7 @@ import org.jupnp.model.meta.RemoteDeviceIdentity;
  * @author Patrick Koenemann - Initial contribution
  * @author Mihaela Memova - removed the getLabel(RemoteDevice device) method due to its unreachable code lines
  */
+@Component(immediate = true)
 public class FSInternetRadioDiscoveryParticipant implements UpnpDiscoveryParticipant {
 
     /** Map from UPnP manufacturer to model number for supported radios; filled in static initializer below. */
@@ -78,6 +85,17 @@ public class FSInternetRadioDiscoveryParticipant implements UpnpDiscoveryPartici
         hamaRadios.add("DIR3100");
         hamaRadios.add("DIR3110");
 
+        // as reported in: https://community.openhab.org/t/internet-radio-i-need-your-help/2131/19
+        // and: https://community.openhab.org/t/internet-radio-i-need-your-help/2131/20
+        // and: https://community.openhab.org/t/internet-radio-i-need-your-help/2131/23
+        // these radios do not provide model number, but the model name should also be ok
+        final Set<String> radiosWithoutManufacturer = new HashSet<String>();
+        radiosWithoutManufacturer.add(""); // empty manufacturer / model name
+        radiosWithoutManufacturer.add(null); // missing manufacturer / model name
+        SUPPORTED_RADIO_MODELS.put("SMRS18A1", radiosWithoutManufacturer);
+        SUPPORTED_RADIO_MODELS.put("SMRS30A1", radiosWithoutManufacturer);
+        SUPPORTED_RADIO_MODELS.put("SMRS35A1", radiosWithoutManufacturer);
+
         // as reported in: https://community.openhab.org/t/internet-radio-i-need-your-help/2131/5
         final Set<String> ttmicroRadios = new HashSet<String>();
         SUPPORTED_RADIO_MODELS.put("TTMICRO AS", ttmicroRadios);
@@ -86,7 +104,31 @@ public class FSInternetRadioDiscoveryParticipant implements UpnpDiscoveryPartici
         // as reported in: https://community.openhab.org/t/internet-radio-i-need-your-help/2131/7
         final Set<String> revoRadios = new HashSet<String>();
         SUPPORTED_RADIO_MODELS.put("REVO TECHNOLOGIES LTD", revoRadios);
-        revoRadios.add("SUPERCONNECT");
+        revoRadios.add("S10");
+
+        // as reported in: https://community.openhab.org/t/internet-radio-i-need-your-help/2131/10
+        // and: https://community.openhab.org/t/internet-radio-i-need-your-help/2131/21
+        final Set<String> robertsRadios = new HashSet<String>();
+        SUPPORTED_RADIO_MODELS.put("ROBERTS RADIO LIMITED", robertsRadios);
+        robertsRadios.add("ROBERTS STREAM 93I");
+        robertsRadios.add("ROBERTS STREAM 83I");
+
+        // as reported in: https://community.openhab.org/t/internet-radio-i-need-your-help/2131/11
+        final Set<String> aunaRadios = new HashSet<String>();
+        SUPPORTED_RADIO_MODELS.put("AUNA", aunaRadios);
+        aunaRadios.add("10028154 & 10028155");
+        aunaRadios.add("10028154");
+        aunaRadios.add("10028155");
+
+        // as reported in: https://community.openhab.org/t/internet-radio-i-need-your-help/2131/22
+        final Set<String> sangeanRadios = new HashSet<String>();
+        SUPPORTED_RADIO_MODELS.put("SANGEAN RADIO LIMITED", sangeanRadios);
+        sangeanRadios.add("28");
+
+        // as reported in: https://community.openhab.org/t/internet-radio-i-need-your-help/2131/25
+        final Set<String> rokuRadios = new HashSet<String>();
+        SUPPORTED_RADIO_MODELS.put("ROKU", rokuRadios);
+        rokuRadios.add("M1001");
     }
 
     @Override
@@ -173,7 +215,8 @@ public class FSInternetRadioDiscoveryParticipant implements UpnpDiscoveryPartici
                 final String modelNumber = modelDetails.getModelNumber();
                 if (modelNumber != null) {
                     if (manufacturer != null) {
-                        final Set<String> supportedRadios = SUPPORTED_RADIO_MODELS.get(manufacturer.toUpperCase());
+                        final Set<String> supportedRadios = SUPPORTED_RADIO_MODELS
+                                .get(manufacturer.trim().toUpperCase());
                         if (supportedRadios != null && supportedRadios.contains(modelNumber.toUpperCase())) {
                             return new ThingUID(THING_TYPE_RADIO, details.getSerialNumber());
                         }
@@ -181,7 +224,7 @@ public class FSInternetRadioDiscoveryParticipant implements UpnpDiscoveryPartici
                     // check model name and number
                     final String modelName = modelDetails.getModelName();
                     if (modelName != null) {
-                        final Set<String> supportedRadios = SUPPORTED_RADIO_MODELS.get(modelName.toUpperCase());
+                        final Set<String> supportedRadios = SUPPORTED_RADIO_MODELS.get(modelName.trim().toUpperCase());
                         if (supportedRadios != null && supportedRadios.contains(modelNumber.toUpperCase())) {
                             return new ThingUID(THING_TYPE_RADIO, details.getSerialNumber());
                         }

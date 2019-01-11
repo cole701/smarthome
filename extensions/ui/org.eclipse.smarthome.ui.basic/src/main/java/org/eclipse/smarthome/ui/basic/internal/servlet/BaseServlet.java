@@ -1,31 +1,32 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.ui.basic.internal.servlet;
 
-import javax.servlet.Servlet;
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
-
 import org.eclipse.smarthome.core.items.ItemRegistry;
-import org.osgi.service.http.HttpContext;
-import org.osgi.service.http.HttpService;
+import org.eclipse.smarthome.io.http.servlet.SmartHomeBundleServlet;
 
 /**
  * This is the base servlet class for other servlet in the Basic UI.
  *
  * @author Thomas.Eichstaedt-Engelen
  */
-public abstract class BaseServlet implements Servlet {
+public abstract class BaseServlet extends SmartHomeBundleServlet {
+
+    private static final long serialVersionUID = -4012800772403491132L;
 
     /** the root path of this web application */
     public static final String WEBAPP_ALIAS = "/basicui";
 
-    protected HttpService httpService;
     protected ItemRegistry itemRegistry;
 
     public void setItemRegistry(ItemRegistry itemRegistry) {
@@ -34,54 +35,6 @@ public abstract class BaseServlet implements Servlet {
 
     public void unsetItemRegistry(ItemRegistry itemRegistry) {
         this.itemRegistry = null;
-    }
-
-    public void setHttpService(HttpService httpService) {
-        this.httpService = httpService;
-    }
-
-    public void unsetHttpService(HttpService httpService) {
-        this.httpService = null;
-    }
-
-    /**
-     * Creates a {@link HttpContext}
-     *
-     * @return a {@link HttpContext}
-     */
-    protected HttpContext createHttpContext() {
-        HttpContext defaultHttpContext = httpService.createDefaultHttpContext();
-        return defaultHttpContext;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void init(ServletConfig config) throws ServletException {
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public ServletConfig getServletConfig() {
-        return null;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public String getServletInfo() {
-        return null;
-    }
-
-    /**
-     * {@inheritDoc}
-     */
-    @Override
-    public void destroy() {
     }
 
 }

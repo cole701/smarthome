@@ -1,30 +1,33 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.model.thing.internal;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
+import org.eclipse.smarthome.config.core.Configuration;
 import org.eclipse.smarthome.core.common.registry.AbstractProvider;
 import org.eclipse.smarthome.core.thing.ChannelUID;
 import org.eclipse.smarthome.core.thing.link.ItemChannelLink;
 import org.eclipse.smarthome.core.thing.link.ItemChannelLinkProvider;
-import org.eclipse.smarthome.model.core.EventType;
-import org.eclipse.smarthome.model.core.ModelRepository;
-import org.eclipse.smarthome.model.core.ModelRepositoryChangeListener;
 import org.eclipse.smarthome.model.item.BindingConfigParseException;
 import org.eclipse.smarthome.model.item.BindingConfigReader;
-
-import com.google.common.collect.Iterables;
-import com.google.common.collect.Lists;
+import org.osgi.service.component.annotations.Component;
 
 /**
  * {@link GenericItemChannelLinkProvider} link items to channel by reading bindings with type "channel".
@@ -33,8 +36,9 @@ import com.google.common.collect.Lists;
  * @author Alex Tugarev - Added parsing of multiple Channel UIDs
  *
  */
-public class GenericItemChannelLinkProvider extends AbstractProvider<ItemChannelLink> implements BindingConfigReader,
-        ItemChannelLinkProvider, ModelRepositoryChangeListener {
+@Component(immediate = true, service = { ItemChannelLinkProvider.class, BindingConfigReader.class })
+public class GenericItemChannelLinkProvider extends AbstractProvider<ItemChannelLink>
+        implements BindingConfigReader, ItemChannelLinkProvider {
 
     /** caches binding configurations. maps itemNames to {@link BindingConfig}s */
     protected Map<String, Set<ItemChannelLink>> itemChannelLinkMap = new ConcurrentHashMap<>();
@@ -44,9 +48,6 @@ public class GenericItemChannelLinkProvider extends AbstractProvider<ItemChannel
      * structure: context -> Set of Item names
      */
     protected Map<String, Set<String>> contextMap = new ConcurrentHashMap<>();
-
-    @SuppressWarnings("unused")
-    private ModelRepository modelRepository = null;
 
     private Set<String> previousItemNames;
 
@@ -61,19 +62,19 @@ public class GenericItemChannelLinkProvider extends AbstractProvider<ItemChannel
     }
 
     @Override
-    public void processBindingConfiguration(String context, String itemType, String itemName, String bindingConfig)
-            throws BindingConfigParseException {
+    public void processBindingConfiguration(String context, String itemType, String itemName, String bindingConfig,
+            Configuration configuration) throws BindingConfigParseException {
         String[] uids = bindingConfig.split(",");
         if (uids.length == 0) {
             throw new BindingConfigParseException(
                     "At least one Channel UID should be provided: <bindingID>.<thingTypeId>.<thingId>.<channelId>");
         }
         for (String uid : uids) {
-            createItemChannelLink(context, itemName, uid.trim());
+            createItemChannelLink(context, itemName, uid.trim(), configuration);
         }
     }
 
-    private void createItemChannelLink(String context, String itemName, String channelUID)
+    private void createItemChannelLink(String context, String itemName, String channelUID, Configuration configuration)
             throws BindingConfigParseException {
         ChannelUID channelUIDObject = null;
         try {
@@ -81,7 +82,7 @@ public class GenericItemChannelLinkProvider extends AbstractProvider<ItemChannel
         } catch (IllegalArgumentException e) {
             throw new BindingConfigParseException(e.getMessage());
         }
-        ItemChannelLink itemChannelLink = new ItemChannelLink(itemName, channelUIDObject);
+        ItemChannelLink itemChannelLink = new ItemChannelLink(itemName, channelUIDObject, configuration);
 
         Set<String> itemNames = contextMap.get(context);
         if (itemNames == null) {
@@ -89,10 +90,10 @@ public class GenericItemChannelLinkProvider extends AbstractProvider<ItemChannel
             contextMap.put(context, itemNames);
         }
         itemNames.add(itemName);
-        if(previousItemNames != null ) {
+        if (previousItemNames != null) {
             previousItemNames.remove(itemName);
         }
-        
+
         Set<ItemChannelLink> links = itemChannelLinkMap.get(itemName);
         if (links == null) {
             itemChannelLinkMap.put(itemName, links = new HashSet<>());
@@ -107,7 +108,11 @@ public class GenericItemChannelLinkProvider extends AbstractProvider<ItemChannel
 
     @Override
     public void startConfigurationUpdate(String context) {
-        previousItemNames = contextMap.get(context);
+        if (previousItemNames != null) {
+            logger.warn("There already is an update transaction for generic item channel links. Continuing anyway.");
+        }
+        Set<String> previous = contextMap.get(context);
+        previousItemNames = previous != null ? new HashSet<>(previous) : Collections.emptySet();
     }
 
     @Override
@@ -122,40 +127,16 @@ public class GenericItemChannelLinkProvider extends AbstractProvider<ItemChannel
                     }
                 }
             }
-            contextMap.remove(context);
+            if (contextMap.get(context) != null) {
+                contextMap.get(context).removeAll(previousItemNames);
+            }
+            previousItemNames = null;
         }
     }
 
     @Override
     public Collection<ItemChannelLink> getAll() {
-        return Lists.newLinkedList(Iterables.concat(itemChannelLinkMap.values()));
+        return itemChannelLinkMap.values().stream().flatMap(Collection::stream).collect(Collectors.toList());
     }
 
-    public void setModelRepository(ModelRepository modelRepository) {
-        this.modelRepository = modelRepository;
-        modelRepository.addModelRepositoryChangeListener(this);
-    }
-
-    public void unsetModelRepository(ModelRepository modelRepository) {
-        modelRepository.removeModelRepositoryChangeListener(this);
-        this.modelRepository = null;
-    }
-
-    @Override
-    public void modelChanged(String modelName, EventType type) {
-        if (modelName.endsWith("items")) {
-            switch (type) {
-                case ADDED:
-                    startConfigurationUpdate(modelName);
-                    break;
-                case MODIFIED:
-                    startConfigurationUpdate(modelName);
-                    break;
-                case REMOVED:
-                    startConfigurationUpdate(modelName);
-                    stopConfigurationUpdate(modelName);
-                    break;
-            }
-        }
-    }
 }

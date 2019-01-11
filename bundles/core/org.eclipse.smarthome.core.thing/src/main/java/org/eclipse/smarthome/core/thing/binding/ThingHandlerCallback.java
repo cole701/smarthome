@@ -1,17 +1,34 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.binding;
 
+import java.util.List;
+import java.util.Map;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.smarthome.config.core.Configuration;
+import org.eclipse.smarthome.config.core.validation.ConfigValidationException;
+import org.eclipse.smarthome.core.thing.Channel;
+import org.eclipse.smarthome.core.thing.ChannelGroupUID;
 import org.eclipse.smarthome.core.thing.ChannelUID;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingStatusInfo;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
+import org.eclipse.smarthome.core.thing.binding.builder.ChannelBuilder;
+import org.eclipse.smarthome.core.thing.type.ChannelGroupType;
+import org.eclipse.smarthome.core.thing.type.ChannelGroupTypeUID;
+import org.eclipse.smarthome.core.thing.type.ChannelType;
+import org.eclipse.smarthome.core.thing.type.ChannelTypeUID;
 import org.eclipse.smarthome.core.types.Command;
 import org.eclipse.smarthome.core.types.State;
 
@@ -22,7 +39,10 @@ import org.eclipse.smarthome.core.types.State;
  *
  * @author Dennis Nobel - Initial contribution
  * @author Stefan Bußweiler - Added new thing status info, added new configuration update info
+ * @author Christoph Weitkamp - Moved OSGI ServiceTracker from BaseThingHandler to ThingHandlerCallback
+ * @author Christoph Weitkamp - Added preconfigured ChannelGroupBuilder
  */
+@NonNullByDefault
 public interface ThingHandlerCallback {
 
     /**
@@ -58,6 +78,16 @@ public interface ThingHandlerCallback {
     void thingUpdated(Thing thing);
 
     /**
+     * Validates the given configuration parameters against the configuration description.
+     *
+     * @param thing thing with the updated configuration (must no be null)
+     * @param configurationParameters the configuration parameters to be validated
+     * @throws ConfigValidationException if one or more of the given configuration parameters do not match
+     *             their declarations in the configuration description
+     */
+    void validateConfigurationParameters(Thing thing, Map<String, Object> configurationParameters);
+
+    /**
      * Informs about an updated configuration of a thing.
      *
      * @param thing thing with the updated configuration (must no be null)
@@ -76,9 +106,52 @@ public interface ThingHandlerCallback {
     /**
      * Informs the framework that a channel has been triggered.
      *
+     * @param thing thing (must not be null)
      * @param channelUID UID of the channel over which has been triggered.
      * @param event Event.
      */
     void channelTriggered(Thing thing, ChannelUID channelUID, String event);
+
+    /**
+     * Creates a {@link ChannelBuilder} which is preconfigured with values from the given {@link ChannelType}.
+     *
+     * @param channelUID the UID of the {@link Channel} to be created
+     * @param channelTypeUID the {@link ChannelTypeUID} for which the {@link Channel} should be created
+     * @return a preconfigured {@link ChannelBuilder}
+     * @throws IllegalArgumentException if the referenced {@link ChannelType} is not known
+     */
+    ChannelBuilder createChannelBuilder(ChannelUID channelUID, ChannelTypeUID channelTypeUID);
+
+    /**
+     * Creates a {@link ChannelBuilder} which is preconfigured with values from the given {@link Channel} and allows to
+     * modify it. The methods {@link BaseThingHandler#editThing(Thing)} and {@link BaseThingHandler#updateThing(Thing)}
+     * must be called to persist the changes.
+     *
+     * @param thing {@link Thing} (must not be null)
+     * @param channelUID the UID of the {@link Channel} to be edited
+     * @return a preconfigured {@link ChannelBuilder}
+     * @throws IllegalArgumentException if no {@link Channel} with the given UID exists for the given {@link Thing}
+     */
+    ChannelBuilder editChannel(Thing thing, ChannelUID channelUID);
+
+    /**
+     * Creates a list of {@link ChannelBuilder}s which are preconfigured with values from the given
+     * {@link ChannelGroupType}.
+     *
+     * @param channelGroupUID the UID of the channel group to be created
+     * @param channelGroupTypeUID the {@link ChannelGroupUID} for which the {@link Channel}s should be created
+     * @return a list of preconfigured {@link ChannelBuilder}s
+     * @throws IllegalArgumentException if the referenced {@link ChannelGroupType} is not known
+     */
+    List<ChannelBuilder> createChannelBuilders(ChannelGroupUID channelGroupUID,
+            ChannelGroupTypeUID channelGroupTypeUID);
+
+    /**
+     * Returns whether at least one item is linked for the given UID of the channel.
+     *
+     * @param channelUID UID of the channel (must not be null)
+     * @return true if at least one item is linked, false otherwise
+     */
+    boolean isChannelLinked(ChannelUID channelUID);
 
 }

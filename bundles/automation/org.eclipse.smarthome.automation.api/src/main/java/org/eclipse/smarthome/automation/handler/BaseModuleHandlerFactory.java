@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.handler;
 
@@ -11,75 +16,73 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNull;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.automation.Module;
-import org.osgi.framework.BundleContext;
+import org.eclipse.smarthome.automation.Rule;
 
 /**
- * This is a base class that can be used by any ModuleHandlerFactory implementation
+ * This class provides a {@link ModuleHandlerFactory} base implementation. It is used by its subclasses for base
+ * implementation of creating and disposing {@link ModuleHandler} instances. They only have to implement
+ * {@link #internalCreate(Module, String)} method for creating concrete instances needed for the operation of the
+ * {@link Module}s.
  *
  * @author Kai Kreuzer - Initial Contribution
  * @author Benedikt Niehues - change behavior for unregistering ModuleHandler
  */
-abstract public class BaseModuleHandlerFactory implements ModuleHandlerFactory {
+@NonNullByDefault
+public abstract class BaseModuleHandlerFactory implements ModuleHandlerFactory {
 
-    private Map<String, ModuleHandler> handlers = new HashMap<String, ModuleHandler>();
-    protected BundleContext bundleContext;
+    private final Map<@NonNull String, @NonNull ModuleHandler> handlers = new HashMap<>();
 
-    public void activate(BundleContext bundleContext) {
-        if (bundleContext == null) {
-            throw new IllegalArgumentException("BundleContext must not be null.");
+    /**
+     * Should be overridden by the implementations that extend this base class. Called from DS to deactivate the
+     * {@link ModuleHandlerFactory}.
+     */
+    protected void deactivate() {
+        for (ModuleHandler handler : handlers.values()) {
+            handler.dispose();
         }
-        this.bundleContext = bundleContext;
+        handlers.clear();
     }
 
-    public void deactivate() {
-        dispose();
-    }
-
+    /**
+     * Provides all available {@link ModuleHandler}s created by concrete factory implementation.
+     *
+     * @return a map with keys calculated by concatenated rule UID and module Id and values representing
+     *         {@link ModuleHandler} created for concrete module corresponding to the module Id and belongs to rule with
+     *         such UID.
+     */
     protected Map<String, ModuleHandler> getHandlers() {
         return Collections.unmodifiableMap(handlers);
     }
 
     @Override
-    public ModuleHandler getHandler(Module module, String ruleUID) {
-        ModuleHandler handler = handlers.get(ruleUID + module.getId());
-        if (handler == null) {
-            handler = internalCreate(module, ruleUID);
-            if (handler != null) {
-                handlers.put(ruleUID + module.getId(), handler);
-            }
+    @SuppressWarnings("null")
+    public @Nullable ModuleHandler getHandler(Module module, String ruleUID) {
+        String id = ruleUID + module.getId();
+        ModuleHandler handler = handlers.get(id);
+        handler = handler == null ? internalCreate(module, ruleUID) : handler;
+        if (handler != null) {
+            handlers.put(id, handler);
         }
         return handler;
     }
 
     /**
-     * Create a new handler for the given module.
+     * Creates a new {@link ModuleHandler} for a given {@code module} and {@code ruleUID}.
      *
-     * @param module the {@link Module} for which a handler shoult be created
-     * @param ruleUID the id of the rule for which the handler should be created
-     * @return A {@link ModuleHandler} instance or <code>null</code> if thins module type is not supported
+     * @param module  the {@link Module} for which a handler should be created.
+     * @param ruleUID the identifier of the {@link Rule} that the given module belongs to.
+     * @return a {@link ModuleHandler} instance or {@code null} if thins module type is not supported.
      */
-    abstract protected ModuleHandler internalCreate(Module module, String ruleUID);
-
-    public void dispose() {
-        for (ModuleHandler handler : handlers.values()) {
-            if (handler != null) {
-                handler.dispose();
-            }
-        }
-        handlers.clear();
-    }
+    protected abstract @Nullable ModuleHandler internalCreate(Module module, String ruleUID);
 
     @Override
-    public void ungetHandler(Module module, String ruleUID, ModuleHandler hdlr) {
-        ModuleHandler handler = handlers.get(ruleUID + module.getId());
-        if (handler != null) {
-            this.handlers.remove(ruleUID + module.getId());
-            if (!this.handlers.containsValue(hdlr)) {
-                handler.dispose();
-                handler = null;
-            }
+    public void ungetHandler(Module module, String ruleUID, ModuleHandler handler) {
+        if (handlers.remove(ruleUID + module.getId(), handler)) {
+            handler.dispose();
         }
-
     }
 }

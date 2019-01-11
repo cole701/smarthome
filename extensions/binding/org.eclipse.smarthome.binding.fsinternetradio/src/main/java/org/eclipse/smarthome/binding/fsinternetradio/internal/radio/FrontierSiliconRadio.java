@@ -1,13 +1,22 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.fsinternetradio.internal.radio;
 
+import static org.eclipse.smarthome.binding.fsinternetradio.internal.radio.FrontierSiliconRadioConstants.*;
+
 import java.io.IOException;
+
+import org.eclipse.jetty.client.HttpClient;
 
 /**
  * Class representing a internet radio based on the frontier silicon chipset. Tested with "hama IR110" and Medion
@@ -19,21 +28,8 @@ import java.io.IOException;
  */
 public class FrontierSiliconRadio {
 
-    private static final String REQUEST_SET_POWER = "SET/netRemote.sys.power";
-    private static final String REQUEST_GET_POWER = "GET/netRemote.sys.power";
-    private static final String REQUEST_GET_MODE = "GET/netRemote.sys.mode";
-    private static final String REQUEST_SET_MODE = "SET/netRemote.sys.mode";
-    private static final String REQUEST_SET_VOLUME = "SET/netRemote.sys.audio.volume";
-    private static final String REQUEST_GET_VOLUME = "GET/netRemote.sys.audio.volume";
-    private static final String REQUEST_SET_MUTE = "SET/netRemote.sys.audio.mute";
-    private static final String REQUEST_GET_MUTE = "GET/netRemote.sys.audio.mute";
-    private static final String REQUEST_SET_PRESET = "SET/netRemote.nav.state";
-    private static final String REQUEST_SET_PRESET_ACTION = "SET/netRemote.nav.action.selectPreset";
-    private static final String REQUEST_GET_PLAY_INFO_TEXT = "GET/netRemote.play.info.text";
-    private static final String REQUEST_GET_PLAY_INFO_NAME = "GET/netRemote.play.info.name";
-
     /** The http connection/session used for controlling the radio. */
-    private FrontierSiliconRadioConnection conn;
+    private final FrontierSiliconRadioConnection conn;
 
     /** the volume of the radio. we cache it for fast increase/decrease. */
     private int currentVolume = 0;
@@ -41,17 +37,19 @@ public class FrontierSiliconRadio {
     /**
      * Constructor for the Radio class
      *
-     * @param hostname
-     *            Host name of the Radio addressed, e.g. "192.168.0.100"
-     * @param port
-     *            Port number, default: 80 (http)
-     * @param pin
-     *            Access PIN number of the radio. Must be 4 digits, e.g. "1234"
+     * @param hostname Host name of the Radio addressed, e.g. "192.168.0.100"
+     * @param port Port number, default: 80 (http)
+     * @param pin Access PIN number of the radio. Must be 4 digits, e.g. "1234"
+     * @param httpClient http client instance to use
      *
      * @author Rainer Ostendorf
      */
-    public FrontierSiliconRadio(String hostname, int port, String pin) {
-        this.conn = new FrontierSiliconRadioConnection(hostname, port, pin);
+    public FrontierSiliconRadio(String hostname, int port, String pin, HttpClient httpClient) {
+        this.conn = new FrontierSiliconRadioConnection(hostname, port, pin, httpClient);
+    }
+
+    public boolean isLoggedIn() {
+        return conn.isLoggedIn();
     }
 
     /**
@@ -60,8 +58,8 @@ public class FrontierSiliconRadio {
      * @author Rainer Ostendorf
      * @throws IOException if communication with the radio failed, e.g. because the device is not reachable.
      */
-    public void login() throws IOException {
-        conn.doLogin();
+    public boolean login() throws IOException {
+        return conn.doLogin();
     }
 
     /**
@@ -145,8 +143,9 @@ public class FrontierSiliconRadio {
      * @throws IOException if communication with the radio failed, e.g. because the device is not reachable.
      */
     public void increaseVolumeAbsolute() throws IOException {
-        if (currentVolume < 32)
+        if (currentVolume < 32) {
             setVolumeAbsolute(currentVolume + 1);
+        }
     }
 
     /**
@@ -155,8 +154,9 @@ public class FrontierSiliconRadio {
      * @throws IOException if communication with the radio failed, e.g. because the device is not reachable.
      */
     public void decreaseVolumeAbsolute() throws IOException {
-        if (currentVolume > 0)
+        if (currentVolume > 0) {
             setVolumeAbsolute(currentVolume - 1);
+        }
     }
 
     /**
@@ -238,4 +238,5 @@ public class FrontierSiliconRadio {
         final String params = "value=" + (muted ? "1" : "0");
         conn.doRequest(REQUEST_SET_MUTE, params);
     }
+
 }

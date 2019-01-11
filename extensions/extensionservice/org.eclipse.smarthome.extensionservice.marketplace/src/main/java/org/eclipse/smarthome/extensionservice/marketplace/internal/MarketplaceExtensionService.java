@@ -1,22 +1,32 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.extensionservice.marketplace.internal;
 
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import org.apache.commons.lang.StringUtils;
+import org.eclipse.smarthome.config.core.ConfigurableService;
 import org.eclipse.smarthome.core.events.Event;
 import org.eclipse.smarthome.core.events.EventPublisher;
 import org.eclipse.smarthome.core.extension.Extension;
@@ -27,6 +37,14 @@ import org.eclipse.smarthome.extensionservice.marketplace.MarketplaceExtension;
 import org.eclipse.smarthome.extensionservice.marketplace.MarketplaceExtensionHandler;
 import org.eclipse.smarthome.extensionservice.marketplace.MarketplaceHandlerException;
 import org.eclipse.smarthome.extensionservice.marketplace.internal.model.Node;
+import org.osgi.framework.Constants;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,43 +55,87 @@ import org.slf4j.LoggerFactory;
  * @author Kai Kreuzer - Initial contribution and API
  *
  */
+@Component(configurationPid = "org.eclipse.smarthome.marketplace", immediate = true, property = {
+        Constants.SERVICE_PID + "=org.eclipse.smarthome.marketplace", //
+        ConfigurableService.SERVICE_PROPERTY_CATEGORY + "=system", //
+        ConfigurableService.SERVICE_PROPERTY_DESCRIPTION_URI + "=system:marketplace", //
+        ConfigurableService.SERVICE_PROPERTY_LABEL + "=Marketplace" //
+})
 public class MarketplaceExtensionService implements ExtensionService {
+    /**
+     * Enumeration of supported extension package types plus associated attributes.
+     */
+    private enum PackageType {
+        BINDING("binding", MarketplaceExtension.EXT_TYPE_BINDING, "bindings", "Bindings"),
+        RULE_TEMPLATE("rule_template", MarketplaceExtension.EXT_TYPE_RULE_TEMPLATE, "ruletemplates", "Rule Templates"),
+        VOICE("voice", MarketplaceExtension.EXT_TYPE_VOICE, "voice", "Voice");
 
-    // constants used in marketplace nodes
-    private static final String MP_PACKAGETYPE_BINDING = "binding";
-    private static final String MP_PACKAGETYPE_RULE_TEMPLATE = "rule_template";
+        /**
+         * Constant used in marketplace nodes.
+         */
+        final String typeName;
+
+        /**
+         * MarketplaceExtension.EXT_TYPE_ symbolic name.
+         */
+        final String extType;
+
+        /**
+         * Key used in config file for setting visibility property.
+         */
+        final String configKey;
+
+        /**
+         * Label to display on Paper UI tab.
+         */
+        final String label;
+
+        private PackageType(String typeName, String extType, String configKey, String label) {
+            this.typeName = typeName;
+            this.extType = extType;
+            this.configKey = configKey;
+            this.label = label;
+        }
+    }
+
+    private static final String MARKETPLACE_HOST = "marketplace.eclipse.org";
+    private static final Pattern EXTENSION_ID_PATTERN = Pattern.compile(".*?mpc_install=([^&]+?)(&.*)?");
 
     private final Logger logger = LoggerFactory.getLogger(MarketplaceExtensionService.class);
 
-    private MarketplaceProxy proxy;
+    // increased visibility for unit tests
+    MarketplaceProxy proxy;
     private EventPublisher eventPublisher;
-    private Pattern labelPattern = Pattern.compile("<.*>"); // checks for the existence of any xml element
-    private Pattern descriptionPattern = Pattern.compile("<(javascript|div|font)"); // checks for the existence of some
-                                                                                    // invalid elements
+    private final Pattern labelPattern = Pattern.compile("<.*>"); // checks for the existence of any xml element
+    private final Pattern descriptionPattern = Pattern.compile("<(javascript|div|font)"); // checks for the existence of
+                                                                                          // some
+    // invalid elements
 
-    private boolean includeBindings = true;
-    private boolean includeRuleTemplates = true;
+    // configured package type inclusion settings, keyed by package typeName
+    private Map<String, Boolean> packageTypeInclusions = new HashMap<>();
+
     private int maturityLevel = 1;
-    private Set<MarketplaceExtensionHandler> extensionHandlers = new HashSet<>();
+    private final Set<MarketplaceExtensionHandler> extensionHandlers = new HashSet<>();
 
+    @Activate
     protected void activate(Map<String, Object> config) {
         this.proxy = new MarketplaceProxy();
         modified(config);
     }
 
+    @Deactivate
     protected void deactivate() {
         this.proxy.dispose();
         this.proxy = null;
     }
 
+    @Modified
     protected void modified(Map<String, Object> config) {
-        Object bindingCfg = config.get("bindings");
-        if (bindingCfg != null) {
-            this.includeBindings = bindingCfg.toString().equals(Boolean.TRUE.toString());
-        }
-        Object ruleTemplateCfg = config.get("ruletemplates");
-        if (ruleTemplateCfg != null) {
-            this.includeRuleTemplates = ruleTemplateCfg.toString().equals(Boolean.TRUE.toString());
+        for (PackageType packageType : PackageType.values()) {
+            Object inclusionCfg = config.get(packageType.configKey);
+            if (inclusionCfg != null) {
+                packageTypeInclusions.put(packageType.typeName, inclusionCfg.toString().equals(Boolean.TRUE.toString()));
+            }
         }
         Object cfgMaturityLevel = config.get("maturity");
         if (cfgMaturityLevel != null) {
@@ -86,6 +148,7 @@ public class MarketplaceExtensionService implements ExtensionService {
         }
     }
 
+    @Reference
     protected void setEventPublisher(EventPublisher eventPublisher) {
         this.eventPublisher = eventPublisher;
     }
@@ -94,6 +157,7 @@ public class MarketplaceExtensionService implements ExtensionService {
         this.eventPublisher = null;
     }
 
+    @Reference(cardinality = ReferenceCardinality.AT_LEAST_ONE, policy = ReferencePolicy.DYNAMIC)
     protected void addExtensionHandler(MarketplaceExtensionHandler handler) {
         this.extensionHandlers.add(handler);
     }
@@ -114,10 +178,7 @@ public class MarketplaceExtensionService implements ExtensionService {
             if (toMaturityLevel(node.status) < this.maturityLevel) {
                 continue;
             }
-            if (!includeBindings && node.packagetypes.equals(MP_PACKAGETYPE_BINDING)) {
-                continue;
-            }
-            if (!includeRuleTemplates && node.packagetypes.equals(MP_PACKAGETYPE_RULE_TEMPLATE)) {
+            if (!packageTypeInclusions.getOrDefault(node.packagetypes, true)) {
                 continue;
             }
 
@@ -152,17 +213,14 @@ public class MarketplaceExtensionService implements ExtensionService {
             logger.debug("Ignoring node {} due to invalid content.", node.id);
             return null;
         }
-        if (MP_PACKAGETYPE_BINDING.equals(node.packagetypes)) {
-            MarketplaceExtension ext = new MarketplaceExtension(extId, MarketplaceExtension.EXT_TYPE_BINDING, name,
+        for (PackageType packageType : PackageType.values()) {
+            if (packageType.typeName.equals(node.packagetypes)) {
+                MarketplaceExtension ext = new MarketplaceExtension(extId, packageType.extType, name,
                     version, node.supporturl, false, desc, null, node.image, node.updateurl, node.packageformat);
-            return ext;
-        } else if (MP_PACKAGETYPE_RULE_TEMPLATE.equals(node.packagetypes)) {
-            MarketplaceExtension ext = new MarketplaceExtension(extId, MarketplaceExtension.EXT_TYPE_RULE_TEMPLATE,
-                    name, version, node.supporturl, false, desc, null, node.image, node.updateurl, node.packageformat);
-            return ext;
-        } else {
-            return null;
+                return ext;
+            }
         }
+        return null;
     }
 
     @Override
@@ -179,19 +237,13 @@ public class MarketplaceExtensionService implements ExtensionService {
     public List<ExtensionType> getTypes(Locale locale) {
         ArrayList<ExtensionType> types = new ArrayList<>(2);
         List<Extension> exts = getExtensions(locale);
-        if (includeBindings) {
-            for (Extension ext : exts) {
-                if (ext.getType().equals(MarketplaceExtension.EXT_TYPE_BINDING)) {
-                    types.add(new ExtensionType(MarketplaceExtension.EXT_TYPE_BINDING, "Bindings"));
-                    break;
-                }
-            }
-        }
-        if (includeRuleTemplates) {
-            for (Extension ext : exts) {
-                if (ext.getType().equals(MarketplaceExtension.EXT_TYPE_RULE_TEMPLATE)) {
-                    types.add(new ExtensionType(MarketplaceExtension.EXT_TYPE_RULE_TEMPLATE, "Rule Templates"));
-                    break;
+        for (PackageType packageType : PackageType.values()) {
+            if (packageTypeInclusions.getOrDefault(packageType.typeName, true)) {
+                for (Extension ext : exts) {
+                    if (ext.getType().equals(packageType.extType)) {
+                        types.add(new ExtensionType(packageType.extType, packageType.label));
+                        break;
+                    }
                 }
             }
         }
@@ -246,6 +298,15 @@ public class MarketplaceExtensionService implements ExtensionService {
         postFailureEvent(extensionId, "Extension not known.");
     }
 
+    @Override
+    public String getExtensionId(URI extensionURI) {
+        if (extensionURI != null && extensionURI.getHost().equals(MARKETPLACE_HOST)) {
+            return extractExensionId(extensionURI);
+        }
+
+        return null;
+    }
+
     private void postInstalledEvent(String extensionId) {
         Event event = ExtensionEventFactory.createExtensionInstalledEvent(extensionId);
         eventPublisher.post(event);
@@ -263,18 +324,15 @@ public class MarketplaceExtensionService implements ExtensionService {
 
     private String getExtensionId(Node node) {
         StringBuilder sb = new StringBuilder(MarketplaceExtension.EXT_PREFIX);
-        switch (node.packagetypes) {
-            case MP_PACKAGETYPE_RULE_TEMPLATE:
-                sb.append(MarketplaceExtension.EXT_TYPE_RULE_TEMPLATE).append("-");
-                break;
-            case MP_PACKAGETYPE_BINDING:
-                sb.append(MarketplaceExtension.EXT_TYPE_BINDING).append("-");
-                break;
-            default:
-                return null;
+        boolean found = false;
+        for (PackageType packageType : PackageType.values()) {
+            if (packageType.typeName.equals(node.packagetypes)) {
+                sb.append(packageType.extType).append("-");
+                sb.append(node.id.replaceAll("[^a-zA-Z0-9_]", ""));
+                return sb.toString();
+            }
         }
-        sb.append(node.id.replaceAll("[^a-zA-Z0-9_]", ""));
-        return sb.toString();
+        return null;
     }
 
     private int toMaturityLevel(String maturity) {
@@ -300,4 +358,21 @@ public class MarketplaceExtensionService implements ExtensionService {
     private boolean validDescription(String desc) {
         return !descriptionPattern.matcher(desc).find();
     }
+
+    private String extractExensionId(URI uri) {
+        Matcher idMatcher = EXTENSION_ID_PATTERN.matcher(uri.getQuery());
+        String id = null;
+        if (idMatcher.matches() && idMatcher.groupCount() > 1) {
+            id = idMatcher.group(1);
+        }
+
+        Optional<Node> extensionNode = getExtensionNode(id);
+
+        return extensionNode.isPresent() ? getExtensionId(extensionNode.get()) : null;
+    }
+
+    private Optional<Node> getExtensionNode(String id) {
+        return proxy.getNodes().stream().filter(node -> node != null && node.id.equals(id)).findFirst();
+    }
+
 }

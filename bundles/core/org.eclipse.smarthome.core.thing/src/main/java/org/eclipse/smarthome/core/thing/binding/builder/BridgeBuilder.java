@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.binding.builder;
 
@@ -11,6 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.config.core.Configuration;
 import org.eclipse.smarthome.core.thing.Bridge;
 import org.eclipse.smarthome.core.thing.Channel;
@@ -27,6 +34,7 @@ import org.eclipse.smarthome.core.thing.internal.BridgeImpl;
  * @author Markus Rathgeb - Override methods to return BridgeBuidler instead of ThingBuidler
  *
  */
+@NonNullByDefault
 public class BridgeBuilder extends ThingBuilder {
 
     private BridgeBuilder(BridgeImpl thing) {
@@ -56,7 +64,7 @@ public class BridgeBuilder extends ThingBuilder {
     }
 
     @Override
-    public BridgeBuilder withLabel(String label) {
+    public BridgeBuilder withLabel(@Nullable String label) {
         return (BridgeBuilder) super.withLabel(label);
     }
 
@@ -86,7 +94,7 @@ public class BridgeBuilder extends ThingBuilder {
     }
 
     @Override
-    public BridgeBuilder withBridge(ThingUID bridgeUID) {
+    public BridgeBuilder withBridge(@Nullable ThingUID bridgeUID) {
         return (BridgeBuilder) super.withBridge(bridgeUID);
     }
 
@@ -96,7 +104,7 @@ public class BridgeBuilder extends ThingBuilder {
     }
 
     @Override
-    public BridgeBuilder withLocation(String location) {
+    public BridgeBuilder withLocation(@Nullable String location) {
         return (BridgeBuilder) super.withLocation(location);
     }
 

@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.xml.util;
 
@@ -35,11 +40,9 @@ public class NodeList implements NodeName {
      * @param nodeName the name of the node this object belongs to (must neither be null, nor empty)
      * @param attributes all attributes of the node this object belongs to (could be null or empty)
      * @param list the list of the node this object belongs to (could be null or empty)
-     *
      * @throws IllegalArgumentException if the name of the node is null or empty
      */
     public NodeList(String nodeName, Map<String, String> attributes, List<?> list) throws IllegalArgumentException {
-
         if ((nodeName == null) || (nodeName.isEmpty())) {
             throw new IllegalArgumentException("The name of the node must neither be null nor empty!");
         }
@@ -76,7 +79,6 @@ public class NodeList implements NodeName {
      * @see #getAttributes(String, String, String)
      */
     public List<String> getAttributes(String nodeName, String attributeName) throws ConversionException {
-
         return getAttributes(nodeName, attributeName, null);
     }
 
@@ -89,23 +91,21 @@ public class NodeList implements NodeName {
      * @param attributeName the attribute name to be considered (must neither be null, nor empty)
      * @param formattedText the format for the output text using the placeholder format
      *            of the Java String (could be null or empty)
-     *
      * @return the attributes of the specified XML node and attribute name for the whole list
      *         (could be null or empty)
-     *
      * @throws ConversionException if the attribute could not be found in the specified node
      */
     @SuppressWarnings("unchecked")
     public List<String> getAttributes(String nodeName, String attributeName, String formattedText)
             throws ConversionException {
-
         List<String> attributes = null;
 
         if (this.list != null) {
             attributes = new ArrayList<>(this.list.size());
 
-            if ((formattedText == null) || (formattedText.isEmpty())) {
-                formattedText = "%s";
+            String format = formattedText;
+            if ((format == null) || (format.isEmpty())) {
+                format = "%s";
             }
 
             for (NodeAttributes node : (List<NodeAttributes>) this.list) {
@@ -113,10 +113,10 @@ public class NodeList implements NodeName {
                     String attributeValue = node.getAttribute(attributeName);
 
                     if (attributeValue != null) {
-                        attributes.add(String.format(formattedText, attributeValue));
+                        attributes.add(String.format(format, attributeValue));
                     } else {
-                        throw new ConversionException("Missing attribute '" + attributeName + "' in '" + nodeName
-                                + "'!");
+                        throw new ConversionException(
+                                "Missing attribute '" + attributeName + "' in '" + nodeName + "'!");
                     }
                 } else {
                     throw new ConversionException("Invalid attribute in '" + nodeName + "'!");

@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.transform.map.internal;
 
@@ -31,6 +36,7 @@ public class MapTransformationServiceTest {
     private static final String SOURCE_UNKNOWN = "UNKNOWN";
     private static final String EXISTING_FILENAME_DE = "map/doorstatus_de.map";
     private static final String SHOULD_BE_LOCALIZED_FILENAME = "map/doorstatus.map";
+    private static final String DEFAULTED_FILENAME = "map/doorstatus_defaulted.map";
     private static final String INEXISTING_FILENAME = "map/de.map";
     private static final String BASE_FOLDER = "target";
     private static final String SRC_FOLDER = "conf";
@@ -92,8 +98,7 @@ public class MapTransformationServiceTest {
                 }
             }, 10000, 100);
         } catch (IOException e1) {
-            // TODO Auto-generated catch block
-            e1.printStackTrace();
+            e1.printStackTrace(System.err);
         }
 
         // Checks that an unknown input in an existing file give the expected
@@ -116,6 +121,16 @@ public class MapTransformationServiceTest {
         Assert.assertNotEquals(SOURCE_CLOSED, transformedResponse);
         transformedResponse = processor.transform(SHOULD_BE_LOCALIZED_FILENAME, SOURCE_CLOSED);
         Assert.assertNotEquals(SOURCE_CLOSED, transformedResponse);
+    }
+
+    @Test
+    public void testTransformByMapWithDefault() throws Exception {
+        // Standard behaviour with no default value
+        String transformedResponse = processor.transform(SHOULD_BE_LOCALIZED_FILENAME, "toBeDefaulted");
+        Assert.assertEquals("", transformedResponse);
+        // Modified behaviour with a file containing default value definition
+        transformedResponse = processor.transform(DEFAULTED_FILENAME, "toBeDefaulted");
+        Assert.assertEquals("Default Value", transformedResponse);
     }
 
     protected void waitForAssert(Callable<Void> assertion, int timeout, int sleepTime) throws Exception {

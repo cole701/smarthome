@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.common;
 
@@ -15,6 +20,9 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,20 +60,21 @@ import org.slf4j.LoggerFactory;
  */
 public class QueueingThreadPoolExecutor extends ThreadPoolExecutor {
 
-    private Logger logger = LoggerFactory.getLogger(QueueingThreadPoolExecutor.class);
+    private final Logger logger = LoggerFactory.getLogger(QueueingThreadPoolExecutor.class);
 
     /** we will use a core pool size of 1 since we allow to timeout core threads. */
-    final static int CORE_THREAD_POOL_SIZE = 1;
+    static final int CORE_THREAD_POOL_SIZE = 1;
 
     /** Our queue for queueing tasks that wait for a thread to become available */
-    private LinkedTransferQueue<Runnable> taskQueue = new LinkedTransferQueue<>();
+    private final BlockingQueue<Runnable> taskQueue = new LinkedTransferQueue<>();
 
     /** The thread for processing the queued tasks */
-    private Thread queueThread;
+    private volatile Thread queueThread;
+    private final ReadWriteLock queueThreadLock = new ReentrantReadWriteLock(true);
 
-    final private Object semaphore = new Object();
+    private final Object semaphore = new Object();
 
-    final private String threadPoolName;
+    private final String threadPoolName;
 
     /**
      * Allows to subclass QueueingThreadPoolExecutor.
@@ -79,23 +88,24 @@ public class QueueingThreadPoolExecutor extends ThreadPoolExecutor {
             RejectedExecutionHandler rejectionHandler) {
         super(CORE_THREAD_POOL_SIZE, threadPoolSize, 10L, TimeUnit.SECONDS, new SynchronousQueue<Runnable>(),
                 threadFactory, rejectionHandler);
+
+        if (threadPoolName == null || threadPoolName.trim().isEmpty()) {
+            throw new IllegalArgumentException("A thread pool name must be provided!");
+        }
+
         this.threadPoolName = threadPoolName;
         allowCoreThreadTimeOut(true);
     }
 
     /**
-     * Creates a new instance of {@link QueueingThreadPoolExecutor}
+     * Creates a new instance of {@link QueueingThreadPoolExecutor}.
      *
      * @param name the name of the thread pool, will be used as a prefix for the name of the threads
      * @param threadPoolSize the maximum size of the pool
      * @return the {@link QueueingThreadPoolExecutor} instance
      */
     public static QueueingThreadPoolExecutor createInstance(String name, int threadPoolSize) {
-        if (name == null || name.trim().isEmpty()) {
-            throw new IllegalArgumentException("A thread pool name must be provided!");
-        }
-        return new QueueingThreadPoolExecutor(name, new CommonThreadFactory(name), threadPoolSize,
-                new QueueingThreadPoolExecutor.QueueingRejectionHandler());
+        return new QueueingThreadPoolExecutor(name, threadPoolSize);
     }
 
     /**
@@ -104,17 +114,27 @@ public class QueueingThreadPoolExecutor extends ThreadPoolExecutor {
      * @param runnable the task to add
      */
     protected void addToQueue(Runnable runnable) {
-        taskQueue.add(runnable);
+        try {
+            queueThreadLock.readLock().lock();
+            taskQueue.add(runnable);
 
-        if (queueThread == null || !queueThread.isAlive()) {
-            synchronized (this) {
-                // check again to make sure it has not been created by another thread
-                if (queueThread == null || !queueThread.isAlive()) {
-                    logger.trace("Thread pool '{}' exhausted, queueing tasks now.", threadPoolName);
-                    queueThread = createNewQueueThread();
-                    queueThread.start();
+            if (queueThread == null || !queueThread.isAlive()) {
+                try {
+                    queueThreadLock.readLock().unlock();
+                    queueThreadLock.writeLock().lock();
+                    // check again to make sure it has not been created by another thread
+                    if (queueThread == null || !queueThread.isAlive()) {
+                        logger.trace("Thread pool '{}' exhausted, queueing tasks now.", threadPoolName);
+                        queueThread = createNewQueueThread();
+                        queueThread.start();
+                    }
+                } finally {
+                    queueThreadLock.writeLock().unlock();
+                    queueThreadLock.readLock().lock();
                 }
             }
+        } finally {
+            queueThreadLock.readLock().unlock();
         }
     }
 
@@ -163,18 +183,31 @@ public class QueueingThreadPoolExecutor extends ThreadPoolExecutor {
 
             @Override
             public void run() {
+                final QueueingThreadPoolExecutor tpe = QueueingThreadPoolExecutor.this;
+                final Consumer<Runnable> parentExecute = QueueingThreadPoolExecutor.super::execute;
+
                 while (true) {
                     // check if some thread from the pool is idle
-                    if (QueueingThreadPoolExecutor.this.getActiveCount() < QueueingThreadPoolExecutor.this
-                            .getMaximumPoolSize()) {
+                    if (tpe.getActiveCount() < tpe.getMaximumPoolSize()) {
                         try {
                             // keep waiting for max 2 seconds if further tasks are pushed to the queue
-                            Runnable runnable = taskQueue.poll(2, TimeUnit.SECONDS);
+                            final Runnable runnable = taskQueue.poll(2, TimeUnit.SECONDS);
                             if (runnable != null) {
                                 logger.trace("Executing queued task of thread pool '{}'.", threadPoolName);
-                                QueueingThreadPoolExecutor.super.execute(runnable);
+                                parentExecute.accept(runnable);
                             } else {
-                                break;
+                                try {
+                                    queueThreadLock.writeLock().lock();
+                                    if (taskQueue.isEmpty()) {
+                                        // Set the queueThread member to null while holding the writeLock, so we signal
+                                        // that the thread will die. Without this approach the thread could be still
+                                        // alive and only the thread itself knows that he is dyeing.
+                                        queueThread = null;
+                                        break;
+                                    }
+                                } finally {
+                                    queueThreadLock.writeLock().unlock();
+                                }
                             }
                         } catch (InterruptedException e) {
                         }

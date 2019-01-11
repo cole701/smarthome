@@ -1,20 +1,27 @@
 /**
- * Copyright (c) 2017 by Kai Kreuzer and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.module.core.handler;
 
 import java.util.Collections;
 import java.util.Dictionary;
+import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
 import java.util.Set;
 
 import org.eclipse.smarthome.automation.Trigger;
 import org.eclipse.smarthome.automation.handler.BaseTriggerModuleHandler;
+import org.eclipse.smarthome.automation.handler.TriggerHandlerCallback;
 import org.eclipse.smarthome.core.events.Event;
 import org.eclipse.smarthome.core.events.EventFilter;
 import org.eclipse.smarthome.core.events.EventSubscriber;
@@ -24,8 +31,6 @@ import org.osgi.framework.BundleContext;
 import org.osgi.framework.ServiceRegistration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Maps;
 
 /**
  * This is an ModuleHandler implementation for Triggers which trigger the rule
@@ -39,12 +44,12 @@ public class ItemCommandTriggerHandler extends BaseTriggerModuleHandler implemen
 
     private final Logger logger = LoggerFactory.getLogger(ItemCommandTriggerHandler.class);
 
-    private String itemName;
-    private String command;
-    private String topic;
+    private final String itemName;
+    private final String command;
+    private final String topic;
 
-    private Set<String> types;
-    private BundleContext bundleContext;
+    private final Set<String> types;
+    private final BundleContext bundleContext;
 
     public static final String MODULE_TYPE_ID = "core.ItemCommandTrigger";
 
@@ -79,16 +84,16 @@ public class ItemCommandTriggerHandler extends BaseTriggerModuleHandler implemen
 
     @Override
     public void receive(Event event) {
-        if (ruleEngineCallback != null) {
+        if (callback != null) {
             logger.trace("Received Event: Source: {} Topic: {} Type: {}  Payload: {}", event.getSource(),
                     event.getTopic(), event.getType(), event.getPayload());
-            Map<String, Object> values = Maps.newHashMap();
+            Map<String, Object> values = new HashMap<>();
             if (event instanceof ItemCommandEvent) {
                 Command command = ((ItemCommandEvent) event).getItemCommand();
                 if (this.command == null || this.command.equals(command.toFullString())) {
                     values.put("command", command);
                     values.put("event", event);
-                    ruleEngineCallback.triggered(this.module, values);
+                    ((TriggerHandlerCallback) callback).triggered(this.module, values);
                 }
             }
         }

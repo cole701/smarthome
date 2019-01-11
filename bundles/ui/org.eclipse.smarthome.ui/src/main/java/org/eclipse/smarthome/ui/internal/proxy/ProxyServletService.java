@@ -1,14 +1,22 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.ui.internal.proxy;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
 import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.Hashtable;
 import java.util.Map;
 
@@ -31,6 +39,11 @@ import org.eclipse.smarthome.model.sitemap.Sitemap;
 import org.eclipse.smarthome.model.sitemap.Video;
 import org.eclipse.smarthome.model.sitemap.Widget;
 import org.eclipse.smarthome.ui.items.ItemUIRegistry;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.osgi.service.http.HttpContext;
 import org.osgi.service.http.HttpService;
 import org.osgi.service.http.NamespaceException;
@@ -62,6 +75,7 @@ import org.slf4j.LoggerFactory;
  * @author Kai Kreuzer - Initial contribution and API
  * @author John Cocula - added optional Image/Video item= support; refactored to allow use of later spec servlet
  */
+@Component(immediate = true, property = { "service.pid=org.eclipse.smarthome.proxy" })
 public class ProxyServletService extends HttpServlet {
 
     /** the alias for this servlet */
@@ -82,6 +96,7 @@ public class ProxyServletService extends HttpServlet {
     protected ItemUIRegistry itemUIRegistry;
     protected ModelRepository modelRepository;
 
+    @Reference(policy = ReferencePolicy.DYNAMIC)
     protected void setItemUIRegistry(ItemUIRegistry itemUIRegistry) {
         this.itemUIRegistry = itemUIRegistry;
     }
@@ -90,6 +105,7 @@ public class ProxyServletService extends HttpServlet {
         this.itemUIRegistry = null;
     }
 
+    @Reference
     protected void setModelRepository(ModelRepository modelRepository) {
         this.modelRepository = modelRepository;
     }
@@ -98,6 +114,7 @@ public class ProxyServletService extends HttpServlet {
         this.modelRepository = null;
     }
 
+    @Reference(policy = ReferencePolicy.DYNAMIC)
     protected void setHttpService(HttpService httpService) {
         this.httpService = httpService;
     }
@@ -139,12 +156,14 @@ public class ProxyServletService extends HttpServlet {
 
         // must specify for Jetty proxy servlet, per http://stackoverflow.com/a/27625380
         if (props.get(CONFIG_MAX_THREADS) == null) {
-            props.put(CONFIG_MAX_THREADS, String.valueOf(DEFAULT_MAX_THREADS));
+            props.put(CONFIG_MAX_THREADS,
+                    String.valueOf(Math.max(DEFAULT_MAX_THREADS, Runtime.getRuntime().availableProcessors())));
         }
 
         return props;
     }
 
+    @Activate
     protected void activate(Map<String, Object> config) {
         try {
             Servlet servlet = getImpl();
@@ -158,6 +177,7 @@ public class ProxyServletService extends HttpServlet {
         }
     }
 
+    @Deactivate
     protected void deactivate() {
         try {
             httpService.unregister("/" + PROXY_ALIAS);
@@ -200,7 +220,6 @@ public class ProxyServletService extends HttpServlet {
      * @return the URI indicated by the request, or <code>null</code> if not possible
      */
     URI uriFromRequest(HttpServletRequest request) {
-
         try {
             // Return any URI we've already saved for this request
             URI uri = (URI) request.getAttribute(ATTR_URI);
@@ -253,22 +272,22 @@ public class ProxyServletService extends HttpServlet {
                 State state = itemUIRegistry.getItemState(itemName);
                 if (state != null && state instanceof StringType) {
                     try {
-                        uri = URI.create(state.toString());
+                        uri = createURIFromString(state.toString());
                         request.setAttribute(ATTR_URI, uri);
                         return uri;
-                    } catch (IllegalArgumentException ex) {
+                    } catch (MalformedURLException | URISyntaxException ex) {
                         // fall thru
                     }
                 }
             }
 
             try {
-                uri = URI.create(uriString);
+                uri = createURIFromString(uriString);
                 request.setAttribute(ATTR_URI, uri);
                 return uri;
-            } catch (IllegalArgumentException iae) {
+            } catch (MalformedURLException | URISyntaxException ex) {
                 throw new ProxyServletException(HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
-                        String.format("URI '%s' is not a valid URI.", uriString));
+                        String.format("URL '%s' is not a valid URL.", uriString));
             }
         } catch (ProxyServletException pse) {
             request.setAttribute(ATTR_SERVLET_EXCEPTION, pse);
@@ -276,8 +295,14 @@ public class ProxyServletService extends HttpServlet {
         }
     }
 
+    private URI createURIFromString(String url) throws MalformedURLException, URISyntaxException {
+        // URI in this context should be valid URL. Therefore before creating URI, create URL,
+        // which validates the string.
+        return new URL(url).toURI();
+    }
+
     /**
-     * If the URI contains user info in the form <code>user:pass</code>, attempt to preempt the server
+     * If the URI contains user info in the form <code>user[:pass]@</code>, attempt to preempt the server
      * returning a 401 by providing Basic Authentication support in the initial request to the server.
      *
      * @param uri the URI which may contain user info
@@ -287,14 +312,63 @@ public class ProxyServletService extends HttpServlet {
         if (uri != null && uri.getUserInfo() != null) {
             String[] userInfo = uri.getUserInfo().split(":");
 
-            if (userInfo.length >= 2) {
+            if (userInfo.length >= 1) {
                 String user = userInfo[0];
-                String password = userInfo[1];
+                String password = userInfo.length >= 2 ? userInfo[1] : null;
+                String authString = password != null ? user + ":" + password : user + ":";
 
-                String basicAuthentication = "Basic " + B64Code.encode(user + ":" + password, StringUtil.__ISO_8859_1);
+                String basicAuthentication = "Basic " + B64Code.encode(authString, StringUtil.__ISO_8859_1);
                 request.header(HttpHeader.AUTHORIZATION, basicAuthentication);
             }
         }
+    }
+
+    /**
+     * Determine if the request is relative to a video widget.
+     *
+     * @param request the servlet request
+     * @return true if the request is relative to a video widget
+     */
+    boolean proxyingVideoWidget(HttpServletRequest request) {
+
+        boolean proxyingVideo = false;
+
+        try {
+            String sitemapName = request.getParameter("sitemap");
+            if (sitemapName == null) {
+                throw new ProxyServletException(HttpServletResponse.SC_BAD_REQUEST,
+                        "Parameter 'sitemap' must be provided!");
+            }
+
+            String widgetId = request.getParameter("widgetId");
+            if (widgetId == null) {
+                throw new ProxyServletException(HttpServletResponse.SC_BAD_REQUEST,
+                        "Parameter 'widgetId' must be provided!");
+            }
+
+            Sitemap sitemap = (Sitemap) modelRepository.getModel(sitemapName);
+            if (sitemap == null) {
+                throw new ProxyServletException(HttpServletResponse.SC_NOT_FOUND,
+                        String.format("Sitemap '%s' could not be found!", sitemapName));
+            }
+
+            Widget widget = itemUIRegistry.getWidget(sitemap, widgetId);
+            if (widget == null) {
+                throw new ProxyServletException(HttpServletResponse.SC_NOT_FOUND,
+                        String.format("Widget '%s' could not be found!", widgetId));
+            }
+
+            if (widget instanceof Image) {
+            } else if (widget instanceof Video) {
+                proxyingVideo = true;
+            } else {
+                throw new ProxyServletException(HttpServletResponse.SC_FORBIDDEN,
+                        String.format("Widget type '%s' is not supported!", widget.getClass().getName()));
+            }
+        } catch (ProxyServletException pse) {
+            request.setAttribute(ATTR_SERVLET_EXCEPTION, pse);
+        }
+        return proxyingVideo;
     }
 
     /**

@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.digitalstrom.internal.discovery;
 
@@ -14,16 +19,18 @@ import java.util.Set;
 
 import javax.jmdns.ServiceInfo;
 
+import org.apache.commons.lang.StringUtils;
 import org.eclipse.smarthome.binding.digitalstrom.DigitalSTROMBindingConstants;
 import org.eclipse.smarthome.binding.digitalstrom.internal.lib.config.Config;
-import org.eclipse.smarthome.binding.digitalstrom.internal.lib.serverConnection.DsAPI;
-import org.eclipse.smarthome.binding.digitalstrom.internal.lib.serverConnection.impl.DsAPIImpl;
+import org.eclipse.smarthome.binding.digitalstrom.internal.lib.serverconnection.DsAPI;
+import org.eclipse.smarthome.binding.digitalstrom.internal.lib.serverconnection.constants.JSONApiResponseKeysEnum;
+import org.eclipse.smarthome.binding.digitalstrom.internal.lib.serverconnection.impl.DsAPIImpl;
 import org.eclipse.smarthome.config.discovery.DiscoveryResult;
 import org.eclipse.smarthome.config.discovery.DiscoveryResultBuilder;
+import org.eclipse.smarthome.config.discovery.mdns.MDNSDiscoveryParticipant;
 import org.eclipse.smarthome.core.thing.ThingTypeUID;
 import org.eclipse.smarthome.core.thing.ThingUID;
-import org.eclipse.smarthome.io.transport.mdns.discovery.MDNSDiscoveryParticipant;
-import org.eclipse.smarthome.io.transport.mdns.discovery.MDNSDiscoveryService;
+import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,9 +42,10 @@ import org.slf4j.LoggerFactory;
  * @author Matthias Siegele - Initial contribution
  *
  */
+@Component(service = MDNSDiscoveryParticipant.class, immediate = true)
 public class BridgeMDNSDiscoveryParticipant implements MDNSDiscoveryParticipant {
 
-    private Logger logger = LoggerFactory.getLogger(BridgeMDNSDiscoveryParticipant.class);
+    private final Logger logger = LoggerFactory.getLogger(BridgeMDNSDiscoveryParticipant.class);
 
     @Override
     public Set<ThingTypeUID> getSupportedThingTypeUIDs() {
@@ -58,7 +66,6 @@ public class BridgeMDNSDiscoveryParticipant implements MDNSDiscoveryParticipant 
                 String hostAddress = service.getName() + "." + service.getDomain() + ".";
                 Map<String, Object> properties = new HashMap<>(2);
                 properties.put(DigitalSTROMBindingConstants.HOST, hostAddress);
-                properties.put(DigitalSTROMBindingConstants.DS_ID, uid.getId());
                 return DiscoveryResultBuilder.create(uid).withProperties(properties)
                         .withRepresentationProperty(uid.getId()).withLabel("digitalSTROM-Server").build();
             }
@@ -72,9 +79,13 @@ public class BridgeMDNSDiscoveryParticipant implements MDNSDiscoveryParticipant 
             String hostAddress = service.getName() + "." + service.getDomain() + ".";
             DsAPI digitalSTROMClient = new DsAPIImpl(hostAddress, Config.DEFAULT_CONNECTION_TIMEOUT,
                     Config.DEFAULT_READ_TIMEOUT, true);
-            String dsid = digitalSTROMClient.getDSID("123");
-            if (dsid != null) {
-                return new ThingUID(DigitalSTROMBindingConstants.THING_TYPE_DSS_BRIDGE, dsid);
+            Map<String, String> dsidMap = digitalSTROMClient.getDSID(null);
+            String dSID = null;
+            if (dsidMap != null) {
+                dSID = dsidMap.get(JSONApiResponseKeysEnum.DSID.getKey());
+            }
+            if (StringUtils.isNotBlank(dSID)) {
+                return new ThingUID(DigitalSTROMBindingConstants.THING_TYPE_DSS_BRIDGE, dSID);
             } else {
                 logger.error("Can't get server dSID to generate thing UID. Please add the server manually.");
             }

@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.lifx.internal.protocol;
 
@@ -11,6 +16,8 @@ import java.nio.ByteBuffer;
 
 import org.eclipse.smarthome.binding.lifx.internal.fields.Field;
 import org.eclipse.smarthome.binding.lifx.internal.fields.UInt64Field;
+import org.eclipse.smarthome.binding.lifx.internal.fields.Version;
+import org.eclipse.smarthome.binding.lifx.internal.fields.VersionField;
 
 /**
  * @author Tim Buckley - Initial Contribution
@@ -22,11 +29,11 @@ public class StateHostFirmwareResponse extends Packet {
 
     public static final Field<Long> FIELD_BUILD = new UInt64Field().little();
     public static final Field<Long> FIELD_RESERVED = new UInt64Field().little();
-    public static final Field<Long> FIELD_VERSION = new UInt64Field().little();
+    public static final Field<Version> FIELD_VERSION = new VersionField().little();
 
     private long build;
     private long reserved;
-    private long version;
+    private Version version;
 
     public long getBuild() {
         return build;
@@ -36,11 +43,11 @@ public class StateHostFirmwareResponse extends Packet {
         this.build = build;
     }
 
-    public long getVersion() {
+    public Version getVersion() {
         return version;
     }
 
-    public void setVersion(long version) {
+    public void setVersion(Version version) {
         this.version = version;
     }
 

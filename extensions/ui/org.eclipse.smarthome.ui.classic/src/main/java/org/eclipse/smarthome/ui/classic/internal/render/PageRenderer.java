@@ -1,25 +1,35 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.ui.classic.internal.render;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.commons.lang.StringEscapeUtils;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.ecore.EObject;
 import org.eclipse.smarthome.model.sitemap.Frame;
-import org.eclipse.smarthome.model.sitemap.Sitemap;
 import org.eclipse.smarthome.model.sitemap.Widget;
 import org.eclipse.smarthome.ui.classic.internal.WebAppConfig;
 import org.eclipse.smarthome.ui.classic.internal.servlet.WebAppServlet;
 import org.eclipse.smarthome.ui.classic.render.RenderException;
 import org.eclipse.smarthome.ui.classic.render.WidgetRenderer;
+import org.eclipse.smarthome.ui.items.ItemUIRegistry;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,12 +43,14 @@ import org.slf4j.LoggerFactory;
  * @author Kai Kreuzer - Initial contribution and API
  *
  */
+@Component(service = PageRenderer.class)
 public class PageRenderer extends AbstractWidgetRenderer {
 
     private final Logger logger = LoggerFactory.getLogger(PageRenderer.class);
 
     List<WidgetRenderer> widgetRenderers = new ArrayList<WidgetRenderer>();
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     public void addWidgetRenderer(WidgetRenderer widgetRenderer) {
         widgetRenderer.setConfig(config);
         widgetRenderers.add(widgetRenderer);
@@ -61,7 +73,6 @@ public class PageRenderer extends AbstractWidgetRenderer {
      */
     public StringBuilder processPage(String id, String sitemap, String label, EList<Widget> children, boolean async)
             throws RenderException {
-
         String snippet = getSnippet(async ? "layer" : "main");
         snippet = snippet.replaceAll("%id%", id);
 
@@ -70,36 +81,41 @@ public class PageRenderer extends AbstractWidgetRenderer {
         // Note: we can have a span here, if the parent widget had a label
         // with some value defined (e.g. "Windows [%d]"), which getLabel()
         // will convert into a "Windows <span>5</span>".
-        if (label.contains("[") && label.endsWith("]")) {
-            label = label.replace("[", "").replace("]", "");
+        String labelPlain = label;
+        if (labelPlain.contains("[") && labelPlain.endsWith("]")) {
+            labelPlain = labelPlain.replace("[", "").replace("]", "");
         }
-        snippet = StringUtils.replace(snippet, "%label%", label);
+        snippet = StringUtils.replace(snippet, "%labelstyle%", "");
+        snippet = StringUtils.replace(snippet, "%label%", StringEscapeUtils.escapeHtml(labelPlain));
         snippet = StringUtils.replace(snippet, "%servletname%", WebAppServlet.SERVLET_NAME);
         snippet = StringUtils.replace(snippet, "%sitemap%", sitemap);
 
         String[] parts = snippet.split("%children%");
 
-        StringBuilder pre_children = new StringBuilder(parts[0]);
-        StringBuilder post_children = new StringBuilder(parts[1]);
+        StringBuilder preChildren = new StringBuilder(parts[0]);
+        StringBuilder postChildren = new StringBuilder(parts[1]);
 
         if (parts.length == 2) {
-            processChildren(pre_children, post_children, children);
+            processChildren(preChildren, postChildren, children);
         } else if (parts.length > 2) {
             logger.error("Snippet '{}' contains multiple %children% sections, but only one is allowed!",
                     async ? "layer" : "main");
         }
-        return pre_children.append(post_children);
+        return preChildren.append(postChildren);
     }
 
     private void processChildren(StringBuilder sb_pre, StringBuilder sb_post, EList<Widget> children)
             throws RenderException {
-
         // put a single frame around all children widgets, if there are no explicit frames
         if (!children.isEmpty()) {
-            EObject firstChild = children.get(0);
-            EObject parent = firstChild.eContainer();
-            if (!(firstChild instanceof Frame || parent instanceof Frame || parent instanceof Sitemap
-                    || parent instanceof List)) {
+            boolean frameRequired = false;
+            for (Widget w : children) {
+                EObject parent = itemUIRegistry.getParent(w);
+                if (!(w instanceof Frame || parent instanceof Frame || parent instanceof List)) {
+                    frameRequired = true;
+                }
+            }
+            if (frameRequired) {
                 String frameSnippet = getSnippet("frame");
                 frameSnippet = StringUtils.replace(frameSnippet, "%label%", "");
 
@@ -117,20 +133,20 @@ public class PageRenderer extends AbstractWidgetRenderer {
         }
 
         for (Widget w : children) {
-            StringBuilder new_pre = new StringBuilder();
-            StringBuilder new_post = new StringBuilder();
+            StringBuilder newPre = new StringBuilder();
+            StringBuilder newPost = new StringBuilder();
             StringBuilder widgetSB = new StringBuilder();
             EList<Widget> nextChildren = renderWidget(w, widgetSB);
             if (nextChildren != null) {
                 String[] parts = widgetSB.toString().split("%children%");
                 // no %children% placeholder found or at the end
                 if (parts.length == 1) {
-                    new_pre.append(widgetSB);
+                    newPre.append(widgetSB);
                 }
                 // %children% section found
                 if (parts.length > 1) {
-                    new_pre.append(parts[0]);
-                    new_post.insert(0, parts[1]);
+                    newPre.append(parts[0]);
+                    newPost.insert(0, parts[1]);
                 }
                 // multiple %children% sections found -> log an error and ignore all code starting from the second
                 // occurance
@@ -141,23 +157,19 @@ public class PageRenderer extends AbstractWidgetRenderer {
                             "Snippet for widget '{}' contains multiple %children% sections, but only one is allowed!",
                             widgetType);
                 }
-                processChildren(new_pre, new_post, nextChildren);
-                sb_pre.append(new_pre);
-                sb_pre.append(new_post);
+                processChildren(newPre, newPost, nextChildren);
+                sb_pre.append(newPre);
+                sb_pre.append(newPost);
             } else {
                 sb_pre.append(widgetSB);
             }
         }
-
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public EList<Widget> renderWidget(Widget w, StringBuilder sb) throws RenderException {
         // Check if this widget is visible
-        if (itemUIRegistry.getVisiblity(w) == false) {
+        if (!itemUIRegistry.getVisiblity(w)) {
             return null;
         }
 
@@ -169,17 +181,11 @@ public class PageRenderer extends AbstractWidgetRenderer {
         return null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean canRender(Widget w) {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setConfig(WebAppConfig config) {
         this.config = config;
@@ -187,4 +193,16 @@ public class PageRenderer extends AbstractWidgetRenderer {
             renderer.setConfig(config);
         }
     }
+
+    @Override
+    @Reference
+    protected void setItemUIRegistry(ItemUIRegistry ItemUIRegistry) {
+        super.setItemUIRegistry(ItemUIRegistry);
+    }
+
+    @Override
+    protected void unsetItemUIRegistry(ItemUIRegistry ItemUIRegistry) {
+        super.unsetItemUIRegistry(ItemUIRegistry);
+    }
+
 }

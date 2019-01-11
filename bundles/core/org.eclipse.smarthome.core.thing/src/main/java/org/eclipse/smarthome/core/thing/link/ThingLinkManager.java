@@ -1,18 +1,26 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.link;
 
 import java.util.List;
+import java.util.concurrent.ScheduledExecutorService;
 
+import org.eclipse.smarthome.core.common.ThreadPoolManager;
 import org.eclipse.smarthome.core.common.registry.Provider;
 import org.eclipse.smarthome.core.common.registry.ProviderChangeListener;
 import org.eclipse.smarthome.core.common.registry.RegistryChangeListener;
 import org.eclipse.smarthome.core.events.AbstractTypedEventSubscriber;
+import org.eclipse.smarthome.core.events.EventSubscriber;
 import org.eclipse.smarthome.core.items.Item;
 import org.eclipse.smarthome.core.items.ItemRegistry;
 import org.eclipse.smarthome.core.thing.Channel;
@@ -24,9 +32,14 @@ import org.eclipse.smarthome.core.thing.ThingStatus;
 import org.eclipse.smarthome.core.thing.binding.ThingHandler;
 import org.eclipse.smarthome.core.thing.events.ThingStatusInfoChangedEvent;
 import org.eclipse.smarthome.core.thing.type.ChannelType;
-import org.eclipse.smarthome.core.thing.type.TypeResolver;
+import org.eclipse.smarthome.core.thing.type.ChannelTypeRegistry;
 import org.eclipse.smarthome.core.thing.util.ThingHandlerHelper;
 import org.osgi.service.component.ComponentContext;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Modified;
+import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,28 +55,39 @@ import org.slf4j.LoggerFactory;
  *         ThingSetupManager)
  * @author Markus Rathgeb - Send link notification if item and link exists and unlink on the first removal
  */
+@Component(immediate = true, configurationPid = "org.eclipse.smarthome.links", service = { ThingLinkManager.class,
+        EventSubscriber.class }, property = { "service.config.description.uri:String=system:links",
+                "service.config.label:String=Item Linking", "service.config.category:String=system",
+                "service.pid:String=org.eclipse.smarthome.links" })
 public class ThingLinkManager extends AbstractTypedEventSubscriber<ThingStatusInfoChangedEvent> {
 
-    public ThingLinkManager() {
-        super(ThingStatusInfoChangedEvent.TYPE);
-    }
+    private static final String THREADPOOL_NAME = "thingLinkManager";
 
-    private Logger logger = LoggerFactory.getLogger(ThingLinkManager.class);
+    private final Logger logger = LoggerFactory.getLogger(ThingLinkManager.class);
+
+    private final ScheduledExecutorService scheduler = ThreadPoolManager.getScheduledPool(THREADPOOL_NAME);
 
     private ThingRegistry thingRegistry;
     private ManagedThingProvider managedThingProvider;
     private ItemRegistry itemRegistry;
     private ItemChannelLinkRegistry itemChannelLinkRegistry;
+    private ChannelTypeRegistry channelTypeRegistry;
 
     private boolean autoLinks = true;
 
-    protected void activate(ComponentContext context) {
+    public ThingLinkManager() {
+        super(ThingStatusInfoChangedEvent.TYPE);
+    }
+
+    @Activate
+    public void activate(ComponentContext context) {
         modified(context);
         itemRegistry.addRegistryChangeListener(itemRegistryChangeListener);
         itemChannelLinkRegistry.addRegistryChangeListener(itemChannelLinkRegistryChangeListener);
         managedThingProvider.addProviderChangeListener(managedThingProviderListener);
     }
 
+    @Modified
     protected void modified(ComponentContext context) {
         // check whether we want to enable the automatic link creation or not
         if (context != null) {
@@ -72,12 +96,14 @@ public class ThingLinkManager extends AbstractTypedEventSubscriber<ThingStatusIn
         }
     }
 
-    protected void deactivate() {
+    @Deactivate
+    public void deactivate() {
         itemRegistry.removeRegistryChangeListener(itemRegistryChangeListener);
         itemChannelLinkRegistry.removeRegistryChangeListener(itemChannelLinkRegistryChangeListener);
         managedThingProvider.removeProviderChangeListener(managedThingProviderListener);
     }
 
+    @Reference
     protected void setItemRegistry(ItemRegistry itemRegistry) {
         this.itemRegistry = itemRegistry;
     }
@@ -86,6 +112,7 @@ public class ThingLinkManager extends AbstractTypedEventSubscriber<ThingStatusIn
         this.itemRegistry = null;
     }
 
+    @Reference
     protected void setItemChannelLinkRegistry(ItemChannelLinkRegistry itemChannelLinkRegistry) {
         this.itemChannelLinkRegistry = itemChannelLinkRegistry;
     }
@@ -94,6 +121,7 @@ public class ThingLinkManager extends AbstractTypedEventSubscriber<ThingStatusIn
         this.itemChannelLinkRegistry = null;
     }
 
+    @Reference
     protected void setThingRegistry(ThingRegistry thingRegistry) {
         this.thingRegistry = thingRegistry;
     }
@@ -102,12 +130,22 @@ public class ThingLinkManager extends AbstractTypedEventSubscriber<ThingStatusIn
         this.thingRegistry = null;
     }
 
+    @Reference
     protected void setManagedThingProvider(ManagedThingProvider managedThingProvider) {
         this.managedThingProvider = managedThingProvider;
     }
 
     protected void unsetManagedThingProvider(ManagedThingProvider managedThingProvider) {
         this.managedThingProvider = null;
+    }
+
+    @Reference
+    protected void setChannelTypeRegistry(ChannelTypeRegistry channelTypeRegistry) {
+        this.channelTypeRegistry = channelTypeRegistry;
+    }
+
+    protected void unsetChannelTypeRegistry(ChannelTypeRegistry channelTypeRegistry) {
+        this.channelTypeRegistry = null;
     }
 
     public boolean isAutoLinksEnabled() {
@@ -160,7 +198,7 @@ public class ThingLinkManager extends AbstractTypedEventSubscriber<ThingStatusIn
                 // The handler will be informed on item creation.
                 return;
             }
-            ChannelUID channelUID = itemChannelLink.getUID();
+            ChannelUID channelUID = itemChannelLink.getLinkedUID();
             Thing thing = thingRegistry.get(channelUID.getThingUID());
             if (thing != null) {
                 Channel channel = thing.getChannel(channelUID.getId());
@@ -177,7 +215,7 @@ public class ThingLinkManager extends AbstractTypedEventSubscriber<ThingStatusIn
              * If an item and its link are removed before the registry change listener methods are called,
              * a check for the item could prevent that the handler is informed about the unlink at all.
              */
-            ChannelUID channelUID = itemChannelLink.getUID();
+            ChannelUID channelUID = itemChannelLink.getLinkedUID();
             Thing thing = thingRegistry.get(channelUID.getThingUID());
             if (thing != null) {
                 Channel channel = thing.getChannel(channelUID.getId());
@@ -210,7 +248,7 @@ public class ThingLinkManager extends AbstractTypedEventSubscriber<ThingStatusIn
         private void createLinkIfNotAdvanced(Channel channel) {
             if (autoLinks) {
                 if (channel.getChannelTypeUID() != null) {
-                    ChannelType type = TypeResolver.resolve(channel.getChannelTypeUID());
+                    ChannelType type = channelTypeRegistry.getChannelType(channel.getChannelTypeUID());
                     if (type != null && type.isAdvanced()) {
                         return;
                     }
@@ -225,7 +263,7 @@ public class ThingLinkManager extends AbstractTypedEventSubscriber<ThingStatusIn
             List<Channel> channels = thing.getChannels();
             for (Channel channel : channels) {
                 ItemChannelLink link = new ItemChannelLink(deriveItemName(channel.getUID()), channel.getUID());
-                itemChannelLinkRegistry.remove(link.getID());
+                itemChannelLinkRegistry.remove(link.getUID());
             }
         }
 
@@ -235,7 +273,7 @@ public class ThingLinkManager extends AbstractTypedEventSubscriber<ThingStatusIn
                 if (newThing.getChannel(channel.getUID().getId()) == null) {
                     // this channel does not exist anymore, so remove outdated links
                     ItemChannelLink link = new ItemChannelLink(deriveItemName(channel.getUID()), channel.getUID());
-                    itemChannelLinkRegistry.remove(link.getID());
+                    itemChannelLinkRegistry.remove(link.getUID());
                 }
             }
             for (Channel channel : newThing.getChannels()) {
@@ -253,42 +291,43 @@ public class ThingLinkManager extends AbstractTypedEventSubscriber<ThingStatusIn
     };
 
     private void informHandlerAboutLinkedChannel(Thing thing, Channel channel) {
-        // Don't notify the thing if the thing isn't initialised
-        if (!ThingHandlerHelper.isHandlerInitialized(thing)) {
-            return;
-        }
-
-        ThingHandler handler = thing.getHandler();
-        if (handler != null) {
-            try {
-                handler.channelLinked(channel.getUID());
-            } catch (Exception ex) {
-                logger.error("Exception occured while informing handler:" + ex.getMessage(), ex);
+        scheduler.submit(() -> {
+            // Don't notify the thing if the thing isn't initialised
+            if (ThingHandlerHelper.isHandlerInitialized(thing)) {
+                ThingHandler handler = thing.getHandler();
+                if (handler != null) {
+                    try {
+                        handler.channelLinked(channel.getUID());
+                    } catch (Exception ex) {
+                        logger.error("Exception occurred while informing handler: {}", ex.getMessage(), ex);
+                    }
+                } else {
+                    logger.trace(
+                            "Can not inform handler about linked channel, because no handler is assigned to the thing {}.",
+                            thing.getUID());
+                }
             }
-        } else {
-            logger.trace("Can not inform handler about linked channel, because no handler is assigned to the thing {}.",
-                    thing.getUID());
-        }
+        });
     }
 
     private void informHandlerAboutUnlinkedChannel(Thing thing, Channel channel) {
-        // Don't notify the thing if the thing isn't initialised
-        if (!ThingHandlerHelper.isHandlerInitialized(thing)) {
-            return;
-        }
-
-        ThingHandler handler = thing.getHandler();
-        if (handler != null) {
-            try {
-                handler.channelUnlinked(channel.getUID());
-            } catch (Exception ex) {
-                logger.error("Exception occured while informing handler:" + ex.getMessage(), ex);
+        scheduler.submit(() -> {
+            // Don't notify the thing if the thing isn't initialised
+            if (ThingHandlerHelper.isHandlerInitialized(thing)) {
+                ThingHandler handler = thing.getHandler();
+                if (handler != null) {
+                    try {
+                        handler.channelUnlinked(channel.getUID());
+                    } catch (Exception ex) {
+                        logger.error("Exception occurred while informing handler: {}", ex.getMessage(), ex);
+                    }
+                } else {
+                    logger.trace(
+                            "Can not inform handler about unlinked channel, because no handler is assigned to the thing {}.",
+                            thing.getUID());
+                }
             }
-        } else {
-            logger.trace(
-                    "Can not inform handler about unlinked channel, because no handler is assigned to the thing {}.",
-                    thing.getUID());
-        }
+        });
     }
 
     @Override

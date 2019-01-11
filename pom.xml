@@ -1,17 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
-
-
-  <prerequisites>
-    <maven>3.0</maven>
-  </prerequisites>
 
   <groupId>org.eclipse.smarthome</groupId>
   <artifactId>smarthome</artifactId>
-  <version>0.9.0-SNAPSHOT</version>
+  <version>0.11.0-SNAPSHOT</version>
+
+  <packaging>pom</packaging>
 
   <name>Eclipse SmartHome</name>
+
+  <description>This is the Eclipse SmartHome project</description>
 
   <organization>
     <name>Eclipse.org</name>
@@ -20,10 +19,24 @@
 
   <licenses>
     <license>
-      <name>Eclipse Public License</name>
-      <url>http://www.eclipse.org/legal/epl-v10.html</url>
+      <name>Eclipse Public License 2.0</name>
+      <url>https://www.eclipse.org/legal/epl-2.0/</url>
     </license>
   </licenses>
+
+  <prerequisites>
+    <maven>3.0</maven>
+  </prerequisites>
+
+  <modules>
+    <module>bundles</module>
+    <module>extensions</module>
+    <module>features</module>
+    <module>products</module>
+    <module>tools</module>
+    <module>targetplatform</module>
+    <module>distribution</module>
+  </modules>
 
   <distributionManagement>
     <repository>
@@ -38,39 +51,322 @@
     </snapshotRepository>
   </distributionManagement>
 
-  <description>This is the Eclipse SmartHome project</description>
-
   <properties>
     <esh.java.version>1.8</esh.java.version>
     <maven.compiler.source>${esh.java.version}</maven.compiler.source>
     <maven.compiler.target>${esh.java.version}</maven.compiler.target>
     <maven.compiler.compilerVersion>${esh.java.version}</maven.compiler.compilerVersion>
-    <tycho-version>1.0.0</tycho-version>
+    <tycho-version>1.2.0</tycho-version>
     <tycho-groupid>org.eclipse.tycho</tycho-groupid>
-    <xtext-version>2.9.2</xtext-version>
-    <karaf.version>4.0.3</karaf.version>
-    <build.helper.maven.plugin.version>1.8</build.helper.maven.plugin.version>
+    <xtext-version>2.14.0</xtext-version>
+    <karaf.version>4.2.1</karaf.version>
+    <ds-annotations.version>1.2.10</ds-annotations.version>
+    <jdt-annotations.version>2.1.0</jdt-annotations.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <sat.version>0.5.0</sat.version>
   </properties>
 
-  <packaging>pom</packaging>
+  <repositories>
+    <repository>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>never</updatePolicy>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <id>jcenter</id>
+      <name>JCenter Repository</name>
+      <url>https://jcenter.bintray.com</url>
+    </repository>
+    <repository>
+      <releases>
+        <enabled>true</enabled>
+        <updatePolicy>never</updatePolicy>
+      </releases>
+      <snapshots>
+        <enabled>false</enabled>
+      </snapshots>
+      <id>esh-3rdparty-mvn</id>
+      <name>Eclipse SmartHome 3rd party Maven Repository</name>
+      <url>http://eclipse.github.io/smarthome/third-party/m2-repo/</url>
+    </repository>
+  </repositories>
 
-  <modules>
-    <module>bundles</module>
-    <module>extensions</module>
-    <module>features</module>
-    <module>products</module>
-    <module>tools</module>
-    <module>targetplatform</module>
-    <module>distribution</module>
-  </modules>
+  <pluginRepositories>
+    <pluginRepository>
+      <id>jcenter</id>
+      <url>https://jcenter.bintray.com</url>
+    </pluginRepository>
+  </pluginRepositories>
 
   <build>
+
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <artifactId>maven-install-plugin</artifactId>
+          <version>2.5.2</version>
+        </plugin>
+        <plugin>
+          <artifactId>maven-deploy-plugin</artifactId>
+          <version>2.8.2</version>
+        </plugin>
+        <plugin>
+          <groupId>${tycho-groupid}</groupId>
+          <artifactId>target-platform-configuration</artifactId>
+          <version>${tycho-version}</version>
+          <configuration>
+            <!--
+            <resolver>p2</resolver>
+            <ignoreTychoRepositories>true</ignoreTychoRepositories>
+            -->
+            <pomDependencies>consider</pomDependencies>
+            <target>
+              <artifact>
+                <groupId>org.eclipse.smarthome</groupId>
+                <artifactId>targetplatform</artifactId>
+                <version>${project.version}</version>
+                <classifier>smarthome</classifier>
+              </artifact>
+            </target>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>${tycho-groupid}</groupId>
+          <artifactId>tycho-compiler-plugin</artifactId>
+          <version>${tycho-version}</version>
+          <configuration>
+            <useProjectSettings>false</useProjectSettings>
+            <extraClasspathElements>
+              <extraClasspathElement>
+                <groupId>org.apache.felix</groupId>
+                <artifactId>org.apache.felix.scr.ds-annotations</artifactId>
+                <version>${ds-annotations.version}</version>
+              </extraClasspathElement>
+              <extraClasspathElement>
+                <groupId>org.eclipse.jdt</groupId>
+                <artifactId>org.eclipse.jdt.annotation</artifactId>
+                <version>${jdt-annotations.version}</version>
+              </extraClasspathElement>
+            </extraClasspathElements>
+            <compilerArgs>
+              <arg>-err:+nullAnnot(org.eclipse.jdt.annotation.Nullable|org.eclipse.jdt.annotation.NonNull|org.eclipse.jdt.annotation.NonNullByDefault),+inheritNullAnnot,-nullUncheckedConversion</arg>
+              <arg>-warn:+null,+inheritNullAnnot,+nullAnnotConflict,-nullUncheckedConversion,+nullAnnotRedundant,+nullDereference</arg>
+            </compilerArgs>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>${tycho-groupid}</groupId>
+          <artifactId>tycho-maven-plugin</artifactId>
+          <version>${tycho-version}</version>
+        </plugin>
+        <plugin>
+          <groupId>${tycho-groupid}</groupId>
+          <artifactId>tycho-source-plugin</artifactId>
+          <version>${tycho-version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.eclipse.tycho.extras</groupId>
+          <artifactId>tycho-source-feature-plugin</artifactId>
+          <version>${tycho-version}</version>
+        </plugin>
+        <plugin>
+          <groupId>${tycho-groupid}</groupId>
+          <artifactId>tycho-surefire-plugin</artifactId>
+          <version>${tycho-version}</version>
+          <configuration>
+            <failIfNoTests>false</failIfNoTests>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>${tycho-groupid}</groupId>
+          <artifactId>tycho-p2-plugin</artifactId>
+          <version>${tycho-version}</version>
+        </plugin>
+        <plugin>
+          <groupId>${tycho-groupid}</groupId>
+          <artifactId>tycho-versions-plugin</artifactId>
+          <version>${tycho-version}</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.felix</groupId>
+          <artifactId>maven-scr-plugin</artifactId>
+          <version>1.24.0</version>
+          <configuration>
+            <supportedProjectTypes>
+              <supportedProjectType>eclipse-plugin</supportedProjectType>
+              <supportedProjectType>eclipse-test-plugin</supportedProjectType>
+            </supportedProjectTypes>
+          </configuration>
+        </plugin>
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <version>1.8</version>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.felix</groupId>
+          <artifactId>maven-bundle-plugin</artifactId>
+          <version>3.0.1</version>
+          <extensions>true</extensions>
+          <configuration>
+            <supportedProjectTypes>
+              <supportedProjectType>jar</supportedProjectType>
+              <supportedProjectType>bundle</supportedProjectType>
+              <supportedProjectType>eclipse-plugin</supportedProjectType>
+            </supportedProjectTypes>
+          </configuration>
+        </plugin>
+        <plugin>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>3.8.0</version>
+        </plugin>
+        <plugin>
+          <groupId>com.mycila</groupId>
+          <artifactId>license-maven-plugin</artifactId>
+          <version>3.0</version>
+          <configuration>
+            <basedir>${basedir}</basedir>
+            <header>src/etc/header.txt</header>
+            <quiet>false</quiet>
+            <failIfMissing>true</failIfMissing>
+            <strictCheck>true</strictCheck>
+            <aggregate>true</aggregate>
+            <useDefaultMapping>true</useDefaultMapping>
+            <mapping>
+              <xtend>JAVADOC_STYLE</xtend>
+              <mwe2>JAVADOC_STYLE</mwe2>
+              <xml>xml-header-style</xml>
+            </mapping>
+            <headerDefinitions>
+              <headerDefinition>src/etc/xml-header-style.xml</headerDefinition>
+            </headerDefinitions>
+            <includes>
+              <include>src/**/*.java</include>
+              <include>src/**/*.xtend</include>
+              <include>src/**/*.mwe2</include>
+              <include>bin/**/*.mwe2</include>
+              <include>workflows/**/*.mwe2</include>
+              <include>src/main/feature/feature.xml</include>
+              <include>feature.xml</include>
+              <include>OSGI-INF/*.xml</include>
+            </includes>
+            <excludes>
+              <exclude>_*.java</exclude>
+            </excludes>
+            <useDefaultExcludes>true</useDefaultExcludes>
+            <properties>
+              <year>2019</year>
+            </properties>
+            <encoding>UTF-8</encoding>
+          </configuration>
+          <executions>
+            <execution>
+              <goals>
+                <goal>check</goal>
+              </goals>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.eclipse.xtend</groupId>
+          <artifactId>xtend-maven-plugin</artifactId>
+          <version>${xtext-version}</version>
+          <dependencies>
+            <dependency>
+              <groupId>org.eclipse.platform</groupId>
+              <artifactId>org.eclipse.equinox.common</artifactId>
+              <version>3.10.0</version>
+            </dependency>
+            <!-- see https://github.com/eclipse/xtext/issues/1373#issuecomment-449001543 -->
+            <dependency>
+              <groupId>org.eclipse.jdt</groupId>
+              <artifactId>org.eclipse.jdt.core</artifactId>
+              <version>3.13.102</version>
+            </dependency>
+            <dependency>
+              <groupId>org.eclipse.jdt</groupId>
+              <artifactId>org.eclipse.jdt.compiler.apt</artifactId>
+              <version>1.3.110</version>
+            </dependency>
+            <dependency>
+              <groupId>org.eclipse.jdt</groupId>
+              <artifactId>org.eclipse.jdt.compiler.tool</artifactId>
+              <version>1.2.101</version>
+            </dependency>
+            <dependency>
+              <groupId>org.eclipse.emf</groupId>
+              <artifactId>org.eclipse.emf.codegen</artifactId>
+              <version>2.11.0</version>
+            </dependency>
+          </dependencies>
+          <executions>
+            <execution>
+              <goals>
+                <goal>compile</goal>
+                <goal>xtend-install-debug-info</goal>
+                <goal>testCompile</goal>
+                <goal>xtend-test-install-debug-info</goal>
+              </goals>
+              <configuration>
+                <outputDirectory>${basedir}/xtend-gen</outputDirectory>
+                <testOutputDirectory>${basedir}/xtend-gen</testOutputDirectory>
+              </configuration>
+            </execution>
+          </executions>
+        </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-clean-plugin</artifactId>
+          <version>2.5</version>
+        </plugin>
+        <plugin>
+          <groupId>org.openhab.tools.sat</groupId>
+          <artifactId>sat-plugin</artifactId>
+          <version>${sat.version}</version>
+          <configuration>
+            <pmdFilter>${basedirRoot}/tools/static-code-analysis/pmd/suppressions.properties</pmdFilter>
+            <checkstyleProperties>${basedirRoot}/tools/static-code-analysis/checkstyle/ruleset.properties</checkstyleProperties>
+            <checkstyleFilter>${basedirRoot}/tools/static-code-analysis/checkstyle/suppressions.xml</checkstyleFilter>
+            <spotbugsExclude>${basedirRoot}/tools/static-code-analysis/spotbugs/suppressions.xml</spotbugsExclude>
+          </configuration>
+          <executions>
+            <execution>
+              <id>sat-all</id>
+              <goals>
+                <goal>checkstyle</goal>
+                <goal>pmd</goal>
+                <goal>spotbugs</goal>
+                <goal>report</goal>
+              </goals>
+              <phase>verify</phase>
+            </execution>
+          </executions>
+        </plugin>
+      </plugins>
+    </pluginManagement>
     <plugins>
+      <plugin>
+        <groupId>org.commonjava.maven.plugins</groupId>
+        <artifactId>directory-maven-plugin</artifactId>
+        <version>0.2</version>
+        <executions>
+          <execution>
+            <id>directories</id>
+            <goals>
+              <goal>highest-basedir</goal>
+            </goals>
+            <phase>initialize</phase>
+            <configuration>
+              <property>basedirRoot</property>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
       <plugin>
         <groupId>${tycho-groupid}</groupId>
         <artifactId>tycho-maven-plugin</artifactId>
-        <version>${tycho-version}</version>
         <extensions>true</extensions>
       </plugin>
       <plugin>
@@ -130,199 +426,22 @@
                 <exclude>.gitignore</exclude>
               </excludes>
             </fileset>
+            <fileset>
+              <directory>${basedir}/OSGI-INF</directory>
+              <includes>
+                <include>**</include>
+              </includes>
+              <excludes>
+                <exclude>.gitignore</exclude>
+              </excludes>
+            </fileset>
           </filesets>
         </configuration>
-      </plugin>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>build-helper-maven-plugin</artifactId>
       </plugin>
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
       </plugin>
     </plugins>
-
-    <pluginManagement>
-      <plugins>
-        <plugin>
-          <groupId>${tycho-groupid}</groupId>
-          <artifactId>tycho-compiler-plugin</artifactId>
-          <version>${tycho-version}</version>
-        </plugin>
-        <plugin>
-          <groupId>${tycho-groupid}</groupId>
-          <artifactId>target-platform-configuration</artifactId>
-          <version>${tycho-version}</version>
-          <configuration>
-            <!--
-            <resolver>p2</resolver>
-            <ignoreTychoRepositories>true</ignoreTychoRepositories>
-            -->
-            <pomDependencies>consider</pomDependencies>
-            <target>
-              <artifact>
-                <groupId>org.eclipse.smarthome</groupId>
-                <artifactId>targetplatform</artifactId>
-                <version>${project.version}</version>
-                <classifier>smarthome</classifier>
-              </artifact>
-            </target>
-          </configuration>
-        </plugin>
-        <plugin>
-          <groupId>${tycho-groupid}</groupId>
-          <artifactId>tycho-surefire-plugin</artifactId>
-          <version>${tycho-version}</version>
-          <configuration>
-            <failIfNoTests>false</failIfNoTests>
-          </configuration>
-        </plugin>
-        <plugin>
-          <groupId>org.codehaus.mojo</groupId>
-          <artifactId>build-helper-maven-plugin</artifactId>
-          <version>${build.helper.maven.plugin.version}</version>
-          <executions>
-            <execution>
-              <id>add-source</id>
-              <phase>generate-sources</phase>
-              <goals>
-                <goal>add-source</goal>
-              </goals>
-              <configuration>
-                <sources>
-                  <source>src/main/groovy</source>
-                </sources>
-              </configuration>
-            </execution>
-            <execution>
-              <id>add-test-source</id>
-              <phase>generate-test-sources</phase>
-              <goals>
-                <goal>add-test-source</goal>
-              </goals>
-              <configuration>
-                <sources>
-                  <source>src/test/groovy</source>
-                </sources>
-              </configuration>
-            </execution>
-          </executions>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.felix</groupId>
-          <artifactId>maven-bundle-plugin</artifactId>
-          <version>3.0.1</version>
-          <extensions>true</extensions>
-          <configuration>
-            <supportedProjectTypes>
-              <supportedProjectType>jar</supportedProjectType>
-              <supportedProjectType>bundle</supportedProjectType>
-              <supportedProjectType>eclipse-plugin</supportedProjectType>
-            </supportedProjectTypes>
-          </configuration>
-        </plugin>
-        <plugin>
-          <artifactId>maven-compiler-plugin</artifactId>
-          <version>3.6.1</version>
-          <configuration>
-            <compilerId>groovy-eclipse-compiler</compilerId>
-          </configuration>
-          <executions>
-            <execution>
-              <goals>
-                <goal>compile</goal>
-              </goals>
-            </execution>
-          </executions>
-          <dependencies>
-            <dependency>
-              <groupId>org.codehaus.groovy</groupId>
-              <artifactId>groovy-eclipse-compiler</artifactId>
-              <version>2.9.2-01</version>
-            </dependency>
-            <dependency>
-              <groupId>org.codehaus.groovy</groupId>
-              <artifactId>groovy-eclipse-batch</artifactId>
-              <version>2.4.3-01</version>
-            </dependency>
-          </dependencies>
-        </plugin>
-        <plugin>
-          <groupId>com.mycila</groupId>
-          <artifactId>license-maven-plugin</artifactId>
-          <version>3.0</version>
-          <configuration>
-            <basedir>${basedir}</basedir>
-            <header>src/etc/header.txt</header>
-            <quiet>false</quiet>
-            <failIfMissing>true</failIfMissing>
-            <strictCheck>true</strictCheck>
-            <aggregate>true</aggregate>
-            <useDefaultMapping>true</useDefaultMapping>
-            <mapping>
-              <xtend>JAVADOC_STYLE</xtend>
-              <mwe2>JAVADOC_STYLE</mwe2>
-            </mapping>
-            <includes>
-              <include>**/org/eclipse/smarthome/**/*.java</include>
-              <include>**/org/eclipse/smarthome/**/*.groovy</include>
-              <include>**/org/eclipse/smarthome/**/*.xtend</include>
-              <include>**/*.mwe2</include>
-              <include>**/feature.xml</include>
-              <include>**/OSGI-INF/*.xml</include>
-            </includes>
-            <excludes>
-              <exclude>**/org.eclipse.smarthome.automation.*/**</exclude>
-              <exclude>**/org/eclipse/smarthome/protocols/**</exclude>
-              <exclude>target/**</exclude>
-              <exclude>**/pom.xml</exclude>
-              <exclude>_*.java</exclude>
-            </excludes>
-            <useDefaultExcludes>true</useDefaultExcludes>
-            <properties>
-              <year>2017</year>
-            </properties>
-            <encoding>UTF-8</encoding>
-          </configuration>
-          <executions>
-            <execution>
-              <goals>
-                <goal>check</goal>
-              </goals>
-            </execution>
-          </executions>
-        </plugin>
-        <plugin>
-          <groupId>org.eclipse.xtend</groupId>
-          <artifactId>xtend-maven-plugin</artifactId>
-          <version>${xtext-version}</version>
-          <executions>
-            <execution>
-              <goals>
-                <goal>compile</goal>
-                <goal>xtend-install-debug-info</goal>
-                <goal>testCompile</goal>
-                <goal>xtend-test-install-debug-info</goal>
-              </goals>
-              <configuration>
-                <outputDirectory>${basedir}/xtend-gen</outputDirectory>
-                <testOutputDirectory>${basedir}/xtend-gen</testOutputDirectory>
-              </configuration>
-            </execution>
-          </executions>
-        </plugin>
-        <plugin>
-          <groupId>${tycho-groupid}</groupId>
-          <artifactId>tycho-versions-plugin</artifactId>
-          <version>${tycho-version}</version>
-        </plugin>
-        <plugin>
-          <groupId>org.apache.maven.plugins</groupId>
-          <artifactId>maven-clean-plugin</artifactId>
-          <version>2.5</version>
-        </plugin>
-      </plugins>
-    </pluginManagement>
   </build>
 
   <profiles>
@@ -337,10 +456,10 @@
             <executions>
               <execution>
                 <id>sign</id>
-                <phase>verify</phase>
                 <goals>
                   <goal>sign</goal>
                 </goals>
+                <phase>verify</phase>
               </execution>
             </executions>
           </plugin>
@@ -400,6 +519,11 @@
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-javadoc-plugin</artifactId>
             <version>2.10.3</version>
+            <configuration>
+              <!-- 'javadoc.opts' project property is set by the 'doclint-java8-disable' profile. It is important to keep 'javadoc' profile declaration after the declaration of 'doclint-java8-disable' profile. -->
+              <additionalparam>${javadoc.opts}</additionalparam>
+              <excludePackageNames>*.internal.*,nl.*</excludePackageNames>
+            </configuration>
             <executions>
               <execution>
                 <id>aggregate</id>
@@ -408,23 +532,17 @@
                 </goals>
               </execution>
             </executions>
-            <configuration>
-              <!-- 'javadoc.opts' project property is set by the 'doclint-java8-disable' profile. It is important to keep 'javadoc' profile declaration after the declaration of 'doclint-java8-disable' profile. -->
-              <additionalparam>${javadoc.opts}</additionalparam>
-              <excludePackageNames>*.internal.*,nl.*</excludePackageNames>
-            </configuration>
           </plugin>
           <plugin>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>build-helper-maven-plugin</artifactId>
-            <version>${build.helper.maven.plugin.version}</version>
             <executions>
               <execution>
                 <id>attach-artifacts</id>
-                <phase>install</phase>
                 <goals>
                   <goal>attach-artifact</goal>
                 </goals>
+                <phase>install</phase>
                 <configuration>
                   <artifacts>
                     <artifact>
@@ -440,34 +558,48 @@
         </plugins>
       </build>
     </profile>
+    <!-- static code analysis profiles -->
+    <profile>
+      <id>skip-check</id>
+      <activation>
+        <property>
+          <name>skipChecks</name>
+        </property>
+      </activation>
+      <build>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.openhab.tools.sat</groupId>
+              <artifactId>sat-plugin</artifactId>
+              <version>${sat.version}</version>
+              <executions>
+                <execution>
+                  <id>sat-all</id>
+                  <phase>none</phase>
+                </execution>
+              </executions>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+      </build>
+    </profile>
+    <profile>
+      <id>check-bundles</id>
+      <activation>
+        <file>
+          <exists>META-INF/MANIFEST.MF</exists>
+        </file>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.openhab.tools.sat</groupId>
+            <artifactId>sat-plugin</artifactId>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
-
-  <pluginRepositories>
-    <pluginRepository>
-      <id>tycho-snapshots</id>
-      <url>https://oss.sonatype.org/content/groups/public/</url>
-    </pluginRepository>
-    <pluginRepository>
-      <id>cbi-releases</id>
-      <url>https://repo.eclipse.org/content/repositories/cbi-releases/</url>
-    </pluginRepository>
-    <pluginRepository>
-      <id>buchen-maven-repo</id>
-      <url>http://buchen.github.io/maven-repo</url>
-      <layout>default</layout>
-    </pluginRepository>
-  </pluginRepositories>
-
-  <repositories>
-    <repository>
-      <id>eclipse</id>
-      <name>Eclipse Snapshot Repository</name>
-      <layout>default</layout>
-      <url>https://repo.eclipse.org/content/repositories/snapshots/</url>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
-    </repository>
-  </repositories>
 
 </project>

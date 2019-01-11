@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.parser;
 
@@ -21,23 +26,23 @@ public class ParsingNestedException extends Exception {
     public static final int RULE = 3;
 
     /**
-     * This field keeps information about the UID of the automation object for parsing - module type, template or rule.
+     * Keeps information about the UID of the automation object for parsing - module type, template or rule.
      */
-    private String id;
+    private final String id;
 
     /**
-     * This field keeps information about the type of the automation object for parsing - module type, template or rule.
+     * Keeps information about the type of the automation object for parsing - module type, template or rule.
      */
-    private int type;
+    private final int type;
 
     /**
-     * This constructor creates an exception based on exception thrown the parsing plus information about the type of
-     * the automation object, its UID and additional message with additional information about the parsing process.
+     * Creates an exception based on exception thrown the parsing plus information about the type of the automation
+     * object, its UID and additional message with additional information about the parsing process.
      *
      * @param type is the type of the automation object for parsing.
-     * @param id is the UID of the automation object for parsing.
-     * @param msg is the additional message with additional information about the parsing process.
-     * @param t is the exception thrown during the parsing.
+     * @param id   is the UID of the automation object for parsing.
+     * @param msg  is the additional message with additional information about the parsing process.
+     * @param t    is the exception thrown during the parsing.
      */
     public ParsingNestedException(int type, String id, String msg, Throwable t) {
         super(msg, t);
@@ -46,12 +51,12 @@ public class ParsingNestedException extends Exception {
     }
 
     /**
-     * This constructor creates an exception based on exception thrown during the parsing plus information about the
-     * type of the automation object and its UID.
+     * Creates an exception based on exception thrown during the parsing plus information about the type of the
+     * automation object and its UID.
      *
      * @param type is the type of the automation object for parsing.
-     * @param id is the UID of the automation object for parsing.
-     * @param t is the exception thrown during the parsing.
+     * @param id   is the UID of the automation object for parsing.
+     * @param t    is the exception thrown during the parsing.
      */
     public ParsingNestedException(int type, String id, Throwable t) {
         super(t);
@@ -75,8 +80,9 @@ public class ParsingNestedException extends Exception {
             default:
                 break;
         }
-        if (id != null)
+        if (id != null) {
             sb.append(" " + id);
+        }
         sb.append("] " + super.getMessage());
         return sb.toString();
     }

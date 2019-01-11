@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.ui.basic.internal.render;
 
@@ -15,6 +20,8 @@ import java.util.Set;
 import org.apache.commons.lang.StringUtils;
 import org.eclipse.emf.common.util.EList;
 import org.eclipse.emf.ecore.EObject;
+import org.eclipse.smarthome.core.i18n.LocaleProvider;
+import org.eclipse.smarthome.core.i18n.TranslationProvider;
 import org.eclipse.smarthome.model.sitemap.Frame;
 import org.eclipse.smarthome.model.sitemap.Sitemap;
 import org.eclipse.smarthome.model.sitemap.SitemapProvider;
@@ -23,6 +30,14 @@ import org.eclipse.smarthome.ui.basic.internal.WebAppConfig;
 import org.eclipse.smarthome.ui.basic.internal.servlet.WebAppServlet;
 import org.eclipse.smarthome.ui.basic.render.RenderException;
 import org.eclipse.smarthome.ui.basic.render.WidgetRenderer;
+import org.eclipse.smarthome.ui.items.ItemUIRegistry;
+import org.osgi.framework.BundleContext;
+import org.osgi.service.component.annotations.Activate;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Deactivate;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -37,12 +52,26 @@ import org.slf4j.LoggerFactory;
  * @author Vlad Ivanov - BasicUI changes
  *
  */
+@Component(service = { PageRenderer.class })
 public class PageRenderer extends AbstractWidgetRenderer {
 
     private final Logger logger = LoggerFactory.getLogger(PageRenderer.class);
 
     List<WidgetRenderer> widgetRenderers = new ArrayList<WidgetRenderer>();
 
+    @Override
+    @Activate
+    protected void activate(BundleContext bundleContext) {
+        super.activate(bundleContext);
+    }
+
+    @Override
+    @Deactivate
+    protected void deactivate(BundleContext bundleContext) {
+        super.deactivate(bundleContext);
+    }
+
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     public void addWidgetRenderer(WidgetRenderer widgetRenderer) {
         widgetRenderer.setConfig(config);
         widgetRenderers.add(widgetRenderer);
@@ -65,8 +94,9 @@ public class PageRenderer extends AbstractWidgetRenderer {
      */
     public StringBuilder processPage(String id, String sitemap, String label, EList<Widget> children, boolean async)
             throws RenderException {
-
         String snippet = getSnippet(async ? "layer" : "main");
+        snippet = snippet.replaceAll("%main.offline-msg%", localizeText("@text/main.offline-msg"));
+        snippet = snippet.replaceAll("%main.long-polling-mode-msg%", localizeText("@text/main.long-polling-mode-msg"));
         snippet = snippet.replaceAll("%id%", id);
 
         // if the label contains a value span, we remove this span as
@@ -74,39 +104,41 @@ public class PageRenderer extends AbstractWidgetRenderer {
         // Note: we can have a span here, if the parent widget had a label
         // with some value defined (e.g. "Windows [%d]"), which getLabel()
         // will convert into a "Windows <span>5</span>".
-        if (label.contains("[") && label.endsWith("]")) {
-            label = label.replace("[", "").replace("]", "");
+        String labelPlain = label;
+        if (labelPlain.contains("[") && labelPlain.endsWith("]")) {
+            labelPlain = labelPlain.replace("[", "").replace("]", "");
         }
-        snippet = StringUtils.replace(snippet, "%label%", escapeHtml(label));
+        snippet = StringUtils.replace(snippet, "%label%", escapeHtml(labelPlain));
         snippet = StringUtils.replace(snippet, "%servletname%", WebAppServlet.SERVLET_NAME);
         snippet = StringUtils.replace(snippet, "%sitemap%", sitemap);
         snippet = StringUtils.replace(snippet, "%htmlclass%", config.getCssClassList());
         snippet = StringUtils.replace(snippet, "%icon_type%", config.getIconType());
+        snippet = StringUtils.replace(snippet, "%theme%", config.getTheme());
 
         String[] parts = snippet.split("%children%");
 
-        StringBuilder pre_children = new StringBuilder(parts[0]);
-        StringBuilder post_children = new StringBuilder(parts[1]);
+        StringBuilder preChildren = new StringBuilder(parts[0]);
+        StringBuilder postChildren = new StringBuilder(parts[1]);
 
         if (parts.length == 2) {
-            processChildren(pre_children, post_children, children);
+            processChildren(preChildren, postChildren, children);
         } else if (parts.length > 2) {
             logger.error("Snippet '{}' contains multiple %children% sections, but only one is allowed!",
                     async ? "layer" : "main");
         }
-        return pre_children.append(post_children);
+        return preChildren.append(postChildren);
     }
 
     private void processChildren(StringBuilder sb_pre, StringBuilder sb_post, EList<Widget> children)
             throws RenderException {
-
         // put a single frame around all children widgets, if there are no explicit frames
         if (!children.isEmpty()) {
             EObject firstChild = children.get(0);
-            EObject parent = firstChild.eContainer();
+            EObject parent = itemUIRegistry.getParent((Widget) firstChild);
             if (!(firstChild instanceof Frame || parent instanceof Frame || parent instanceof Sitemap
                     || parent instanceof org.eclipse.smarthome.model.sitemap.List)) {
                 String frameSnippet = getSnippet("frame");
+                frameSnippet = StringUtils.replace(frameSnippet, "%widget_id%", "");
                 frameSnippet = StringUtils.replace(frameSnippet, "%label%", "");
                 frameSnippet = StringUtils.replace(frameSnippet, "%frame_class%", "mdl-form--no-label");
 
@@ -122,20 +154,20 @@ public class PageRenderer extends AbstractWidgetRenderer {
         }
 
         for (Widget w : children) {
-            StringBuilder new_pre = new StringBuilder();
-            StringBuilder new_post = new StringBuilder();
+            StringBuilder newPre = new StringBuilder();
+            StringBuilder newPost = new StringBuilder();
             StringBuilder widgetSB = new StringBuilder();
             EList<Widget> nextChildren = renderWidget(w, widgetSB);
             if (nextChildren != null) {
                 String[] parts = widgetSB.toString().split("%children%");
                 // no %children% placeholder found or at the end
                 if (parts.length == 1) {
-                    new_pre.append(widgetSB);
+                    newPre.append(widgetSB);
                 }
                 // %children% section found
                 if (parts.length > 1) {
-                    new_pre.append(parts[0]);
-                    new_post.insert(0, parts[1]);
+                    newPre.append(parts[0]);
+                    newPost.insert(0, parts[1]);
                 }
                 // multiple %children% sections found -> log an error and ignore all code starting from the second
                 // occurance
@@ -146,19 +178,15 @@ public class PageRenderer extends AbstractWidgetRenderer {
                             "Snippet for widget '{}' contains multiple %children% sections, but only one is allowed!",
                             widgetType);
                 }
-                processChildren(new_pre, new_post, nextChildren);
-                sb_pre.append(new_pre);
-                sb_pre.append(new_post);
+                processChildren(newPre, newPost, nextChildren);
+                sb_pre.append(newPre);
+                sb_pre.append(newPost);
             } else {
                 sb_pre.append(widgetSB);
             }
         }
-
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public EList<Widget> renderWidget(Widget w, StringBuilder sb) throws RenderException {
         for (WidgetRenderer renderer : widgetRenderers) {
@@ -169,17 +197,11 @@ public class PageRenderer extends AbstractWidgetRenderer {
         return null;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public boolean canRender(Widget w) {
         return false;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public void setConfig(WebAppConfig config) {
         this.config = config;
@@ -206,13 +228,20 @@ public class PageRenderer extends AbstractWidgetRenderer {
 
         StringBuilder sb = new StringBuilder();
         if (sitemapList.isEmpty()) {
-            sb.append(getSnippet("sitemaps_list_empty"));
+            String listEmptySnippet = getSnippet("sitemaps_list_empty");
+            listEmptySnippet = StringUtils.replace(listEmptySnippet, "%sitemaps-list-empty.info%",
+                    localizeText("@text/sitemaps-list-empty.info"));
+            sb.append(listEmptySnippet);
         } else {
             for (String sitemap : sitemapList) {
                 sb.append(StringUtils.replace(sitemapSnippet, "%sitemap%", sitemap));
             }
         }
 
+        listSnippet = StringUtils.replace(listSnippet, "%sitemaps-list.welcome%",
+                localizeText("@text/sitemaps-list.welcome"));
+        listSnippet = StringUtils.replace(listSnippet, "%sitemaps-list.available-sitemaps%",
+                localizeText("@text/sitemaps-list.available-sitemaps"));
         listSnippet = StringUtils.replace(listSnippet, "%items%", sb.toString());
 
         pageSnippet = StringUtils.replace(pageSnippet, "%title%", "BasicUI");
@@ -221,5 +250,38 @@ public class PageRenderer extends AbstractWidgetRenderer {
         pageSnippet = StringUtils.replace(pageSnippet, "%content%", listSnippet);
 
         return pageSnippet;
+    }
+
+    @Override
+    @Reference
+    protected void setItemUIRegistry(ItemUIRegistry ItemUIRegistry) {
+        super.setItemUIRegistry(ItemUIRegistry);
+    }
+
+    @Override
+    protected void unsetItemUIRegistry(ItemUIRegistry ItemUIRegistry) {
+        super.unsetItemUIRegistry(ItemUIRegistry);
+    }
+
+    @Override
+    @Reference
+    protected void setLocaleProvider(LocaleProvider LocaleProvider) {
+        super.setLocaleProvider(LocaleProvider);
+    }
+
+    @Override
+    protected void unsetLocaleProvider(LocaleProvider LocaleProvider) {
+        super.unsetLocaleProvider(LocaleProvider);
+    }
+
+    @Override
+    @Reference
+    protected void setTranslationProvider(TranslationProvider TranslationProvider) {
+        super.setTranslationProvider(TranslationProvider);
+    }
+
+    @Override
+    protected void unsetTranslationProvider(TranslationProvider TranslationProvider) {
+        super.unsetTranslationProvider(TranslationProvider);
     }
 }

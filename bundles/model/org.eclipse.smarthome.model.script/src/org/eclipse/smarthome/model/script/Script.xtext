@@ -11,11 +11,38 @@ Script returns XBlockExpression:
 	(expressions+=XExpressionOrVarDeclaration ';'?)* 
 ;
 
+@Override
 XLiteral returns XExpression:
   XClosure |
   XBooleanLiteral |
   XNullLiteral |
   XStringLiteral |
   XNumberLiteral |
-  XTypeLiteral
+  XTypeLiteral |
+  QuantityLiteral
+;
+
+QuantityLiteral returns XExpression:
+    {QuantityLiteral} 
+    value=Number '|' unit=AbstractUnit
+;
+
+AbstractUnit:
+    StringUnit | IDUnit | SpecificUnit
+;
+
+StringUnit:
+    value=STRING
+;
+
+IDUnit:
+    value=ID
+;
+
+SpecificUnit:
+    value=COMMON_UNIT_SYMBOLS
+;
+
+COMMON_UNIT_SYMBOLS:
+    '°C' | '°F' | 'Ω' | '℃' | '°' | '%' | 'm²' | 'm³'
 ;

@@ -1,9 +1,11 @@
 Manifest-Version: 1.0
-Bundle-ManifestVersion: 2
-Bundle-Name: Synthetic Test Bundle
-Bundle-SymbolicName: LoadingConfigDescriptionsTest.bundle;singleton:=true
-Bundle-Version: 0.0.1.qualifier
-Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Bundle-ClassPath: .
-Import-Package: com.google.common.collect,
+Bundle-ManifestVersion: 2
+Bundle-Name: Eclipse SmartHome Synthetic Test Bundle
+Bundle-RequiredExecutionEnvironment: JavaSE-1.8
+Bundle-SymbolicName: LoadingConfigDescriptionsTest.bundle;singleton:=tru
+ e
+Bundle-Version: 0.0.1.qualifier
+Import-Package: 
+ org.eclipse.jdt.annotation;resolution:=optional,
  org.osgi.framework

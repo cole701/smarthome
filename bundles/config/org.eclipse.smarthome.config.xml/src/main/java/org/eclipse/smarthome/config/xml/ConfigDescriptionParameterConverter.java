@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.xml;
 
@@ -113,6 +118,7 @@ public class ConfigDescriptionParameterConverter extends GenericUnmarshaller<Con
         String description = valueMap.getString("description");
 
         Boolean advanced = valueMap.getBoolean("advanced", false);
+        Boolean verify = valueMap.getBoolean("verify", false);
         Boolean limitToOptions = valueMap.getBoolean("limitToOptions", true);
         Integer multipleLimit = valueMap.getInteger("multipleLimit");
         String unitLabel = null;
@@ -130,7 +136,7 @@ public class ConfigDescriptionParameterConverter extends GenericUnmarshaller<Con
                 .withStepSize(step).withPattern(patternString).withRequired(required).withReadOnly(readOnly)
                 .withMultiple(multiple).withContext(parameterContext).withDefault(defaultValue).withLabel(label)
                 .withDescription(description).withOptions(options).withFilterCriteria(filterCriteria)
-                .withGroupName(groupName).withAdvanced(advanced).withLimitToOptions(limitToOptions)
+                .withGroupName(groupName).withAdvanced(advanced).withVerify(verify).withLimitToOptions(limitToOptions)
                 .withMultipleLimit(multipleLimit).withUnit(unit).withUnitLabel(unitLabel).build();
 
         return configDescriptionParam;

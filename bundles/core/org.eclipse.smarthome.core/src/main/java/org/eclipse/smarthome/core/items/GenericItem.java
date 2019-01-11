@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.items;
 
@@ -18,24 +23,22 @@ import java.util.Set;
 import java.util.WeakHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
+import java.util.stream.Collectors;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.common.ThreadPoolManager;
 import org.eclipse.smarthome.core.events.EventPublisher;
+import org.eclipse.smarthome.core.i18n.UnitProvider;
 import org.eclipse.smarthome.core.items.events.ItemEventFactory;
-import org.eclipse.smarthome.core.library.internal.StateConverterUtil;
+import org.eclipse.smarthome.core.service.StateDescriptionService;
 import org.eclipse.smarthome.core.types.Command;
-import org.eclipse.smarthome.core.types.Convertible;
 import org.eclipse.smarthome.core.types.RefreshType;
 import org.eclipse.smarthome.core.types.State;
 import org.eclipse.smarthome.core.types.StateDescription;
-import org.eclipse.smarthome.core.types.StateDescriptionProvider;
 import org.eclipse.smarthome.core.types.UnDefType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 
 /**
  * The abstract base class for all items. It provides all relevant logic
@@ -47,13 +50,14 @@ import com.google.common.collect.ImmutableSet;
  * @author Stefan Bußweiler - Migration to new ESH event concept
  *
  */
-abstract public class GenericItem implements ActiveItem {
+@NonNullByDefault
+public abstract class GenericItem implements ActiveItem {
 
     private final Logger logger = LoggerFactory.getLogger(GenericItem.class);
 
     private static final String ITEM_THREADPOOLNAME = "items";
 
-    protected EventPublisher eventPublisher;
+    protected @Nullable EventPublisher eventPublisher;
 
     protected Set<StateChangeListener> listeners = new CopyOnWriteArraySet<StateChangeListener>(
             Collections.newSetFromMap(new WeakHashMap<StateChangeListener, Boolean>()));
@@ -62,73 +66,61 @@ abstract public class GenericItem implements ActiveItem {
 
     protected Set<String> tags = new HashSet<String>();
 
-    final protected String name;
+    protected final String name;
 
-    final protected String type;
+    protected final String type;
 
     protected State state = UnDefType.NULL;
 
-    protected String label;
+    protected @Nullable String label;
 
-    protected String category;
+    protected @Nullable String category;
 
-    private List<StateDescriptionProvider> stateDescriptionProviders;
+    private @Nullable StateDescriptionService stateDescriptionService;
+
+    protected @Nullable UnitProvider unitProvider;
+
+    protected @Nullable ItemStateConverter itemStateConverter;
 
     public GenericItem(String type, String name) {
         this.name = name;
         this.type = type;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public State getState() {
         return state;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
-    public State getStateAs(Class<? extends State> typeClass) {
-        if (state instanceof Convertible) {
-            return ((Convertible) state).as(typeClass);
-        } else {
-            return StateConverterUtil.defaultConversion(state, typeClass);
-        }
+    public <T extends State> @Nullable T getStateAs(Class<T> typeClass) {
+        return state.as(typeClass);
     }
 
-    /**
-     * {@inheritDoc}
-     */
+    @Override
+    public String getUID() {
+        return getName();
+    }
+
     @Override
     public String getName() {
         return name;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String getType() {
         return type;
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public List<String> getGroupNames() {
-        return ImmutableList.copyOf(groupNames);
+        return Collections.unmodifiableList(new ArrayList<>(groupNames));
     }
 
     /**
      * Adds a group name to the {@link GenericItem}.
      *
-     * @param groupItemName
-     *            group item name to add
-     *
+     * @param groupItemName group item name to add
      * @throws IllegalArgumentException if groupItemName is {@code null}
      */
     @Override
@@ -158,9 +150,7 @@ abstract public class GenericItem implements ActiveItem {
     /**
      * Removes a group item name from the {@link GenericItem}.
      *
-     * @param groupItemName
-     *            group item name to remove
-     *
+     * @param groupItemName group item name to remove
      * @throws IllegalArgumentException if groupItemName is {@code null}
      */
     @Override
@@ -171,12 +161,33 @@ abstract public class GenericItem implements ActiveItem {
         groupNames.remove(groupItemName);
     }
 
-    public void setEventPublisher(EventPublisher eventPublisher) {
+    /**
+     * Disposes this item. Clears all injected services and unregisters all change listeners.
+     * This does not remove this item from its groups. Removing from groups should be done externally to retain the
+     * member order in case this item is exchanged in a group.
+     */
+    public void dispose() {
+        this.listeners.clear();
+        this.eventPublisher = null;
+        this.stateDescriptionService = null;
+        this.unitProvider = null;
+        this.itemStateConverter = null;
+    }
+
+    public void setEventPublisher(@Nullable EventPublisher eventPublisher) {
         this.eventPublisher = eventPublisher;
     }
 
-    public void setStateDescriptionProviders(List<StateDescriptionProvider> stateDescriptionProviders) {
-        this.stateDescriptionProviders = stateDescriptionProviders;
+    public void setStateDescriptionService(@Nullable StateDescriptionService stateDescriptionService) {
+        this.stateDescriptionService = stateDescriptionService;
+    }
+
+    public void setUnitProvider(@Nullable UnitProvider unitProvider) {
+        this.unitProvider = unitProvider;
+    }
+
+    public void setItemStateConverter(@Nullable ItemStateConverter itemStateConverter) {
+        this.itemStateConverter = itemStateConverter;
     }
 
     protected void internalSend(Command command) {
@@ -192,8 +203,7 @@ abstract public class GenericItem implements ActiveItem {
      * Subclasses may override this method in order to do necessary conversions upfront. Afterwards,
      * {@link #applyState(State)} should be called by classes overriding this method.
      *
-     * @param state
-     *            new state of this item
+     * @param state new state of this item
      */
     public void setState(State state) {
         applyState(state);
@@ -241,17 +251,14 @@ abstract public class GenericItem implements ActiveItem {
                             listener.stateChanged(GenericItem.this, oldState, newState);
                         }
                     } catch (Exception e) {
-                        logger.warn("failed notifying listener '{}' about state update of item {}: {}",
-                                new Object[] { listener.toString(), GenericItem.this.getName(), e.getMessage() }, e);
+                        logger.warn("failed notifying listener '{}' about state update of item {}: {}", listener,
+                                GenericItem.this.getName(), e.getMessage(), e);
                     }
                 }
             });
         }
     }
 
-    /**
-     * {@inheritDoc}
-     */
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder();
@@ -271,13 +278,13 @@ abstract public class GenericItem implements ActiveItem {
         if (!getTags().isEmpty()) {
             sb.append(", ");
             sb.append("Tags=[");
-            sb.append(Joiner.on(", ").join(getTags()));
+            sb.append(getTags().stream().collect(Collectors.joining(", ")));
             sb.append("]");
         }
         if (!getGroupNames().isEmpty()) {
             sb.append(", ");
             sb.append("Groups=[");
-            sb.append(Joiner.on(", ").join(getGroupNames()));
+            sb.append(getGroupNames().stream().collect(Collectors.joining(", ")));
             sb.append("]");
         }
         sb.append(")");
@@ -300,16 +307,12 @@ abstract public class GenericItem implements ActiveItem {
     public int hashCode() {
         final int prime = 31;
         int result = 1;
-        result = prime * result + ((category == null) ? 0 : category.hashCode());
-        result = prime * result + ((label == null) ? 0 : label.hashCode());
         result = prime * result + ((name == null) ? 0 : name.hashCode());
-        result = prime * result + ((tags == null) ? 0 : tags.hashCode());
-        result = prime * result + ((type == null) ? 0 : type.hashCode());
         return result;
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (this == obj) {
             return true;
         }
@@ -320,20 +323,6 @@ abstract public class GenericItem implements ActiveItem {
             return false;
         }
         GenericItem other = (GenericItem) obj;
-        if (category == null) {
-            if (other.category != null) {
-                return false;
-            }
-        } else if (!category.equals(other.category)) {
-            return false;
-        }
-        if (label == null) {
-            if (other.label != null) {
-                return false;
-            }
-        } else if (!label.equals(other.label)) {
-            return false;
-        }
         if (name == null) {
             if (other.name != null) {
                 return false;
@@ -341,31 +330,17 @@ abstract public class GenericItem implements ActiveItem {
         } else if (!name.equals(other.name)) {
             return false;
         }
-        if (tags == null) {
-            if (other.tags != null) {
-                return false;
-            }
-        } else if (!tags.equals(other.tags)) {
-            return false;
-        }
-        if (type == null) {
-            if (other.type != null) {
-                return false;
-            }
-        } else if (!type.equals(other.type)) {
-            return false;
-        }
         return true;
     }
 
     @Override
     public Set<String> getTags() {
-        return ImmutableSet.copyOf(tags);
+        return Collections.unmodifiableSet(new HashSet<>(tags));
     }
 
     @Override
     public boolean hasTag(String tag) {
-        return (tags.contains(tag));
+        return tags.stream().anyMatch(t -> t.equalsIgnoreCase(tag));
     }
 
     @Override
@@ -385,7 +360,7 @@ abstract public class GenericItem implements ActiveItem {
 
     @Override
     public void removeTag(String tag) {
-        tags.remove(tag);
+        tags.remove(tags.stream().filter(t -> t.equalsIgnoreCase(tag)).findFirst().orElse(tag));
     }
 
     @Override
@@ -394,41 +369,53 @@ abstract public class GenericItem implements ActiveItem {
     }
 
     @Override
-    public String getLabel() {
+    public @Nullable String getLabel() {
         return this.label;
     }
 
     @Override
-    public void setLabel(String label) {
+    public void setLabel(@Nullable String label) {
         this.label = label;
     }
 
     @Override
-    public String getCategory() {
+    public @Nullable String getCategory() {
         return category;
     }
 
     @Override
-    public void setCategory(String category) {
+    public void setCategory(@Nullable String category) {
         this.category = category;
     }
 
     @Override
-    public StateDescription getStateDescription() {
+    public @Nullable StateDescription getStateDescription() {
         return getStateDescription(null);
     }
 
     @Override
-    public StateDescription getStateDescription(Locale locale) {
-        if (stateDescriptionProviders != null) {
-            for (StateDescriptionProvider stateDescriptionProvider : stateDescriptionProviders) {
-                StateDescription stateDescription = stateDescriptionProvider.getStateDescription(this.name, locale);
-                if (stateDescription != null) {
-                    return stateDescription;
-                }
-            }
+    public @Nullable StateDescription getStateDescription(@Nullable Locale locale) {
+        if (stateDescriptionService != null) {
+            return stateDescriptionService.getStateDescription(this.name, locale);
         }
         return null;
+    }
+
+    /**
+     * Tests if state is within acceptedDataTypes list or a subclass of one of them
+     *
+     * @param acceptedDataTypes list of datatypes this items accepts as a state
+     * @param state to be tested
+     * @return true if state is an acceptedDataType or subclass thereof
+     */
+    public boolean isAcceptedState(List<Class<? extends State>> acceptedDataTypes, State state) {
+        return acceptedDataTypes.stream().map(clazz -> clazz.isAssignableFrom(state.getClass())).filter(found -> found)
+                .findAny().isPresent();
+    }
+
+    protected void logSetTypeError(State state) {
+        logger.error("Tried to set invalid state {} ({}) on item {} of type {}, ignoring it", state,
+                state.getClass().getSimpleName(), getName(), getClass().getSimpleName());
     }
 
 }

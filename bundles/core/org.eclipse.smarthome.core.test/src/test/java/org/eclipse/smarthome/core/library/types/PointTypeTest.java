@@ -1,12 +1,18 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.library.types;
 
+import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.*;
 
 import org.junit.Test;
@@ -15,12 +21,6 @@ import org.junit.Test;
  * @author Gaël L'hopital
  */
 public class PointTypeTest {
-
-    @Test(expected = IllegalArgumentException.class)
-    public void testConstructorNull() {
-        @SuppressWarnings("unused")
-        PointType errorGenerator = new PointType(null);
-    }
 
     @Test(expected = IllegalArgumentException.class)
     public void testConstructorEmpty() {
@@ -44,6 +44,58 @@ public class PointTypeTest {
     public void testConstructorBadlyFormated3() {
         @SuppressWarnings("unused")
         PointType errorGenerator = new PointType("2,3,4,5");
+    }
+
+    @Test
+    public void testConstructorTrim1() {
+        PointType pt = new PointType("1,2,3");
+        assertNotNull(pt);
+        assertThat(pt.getLatitude(), is(new DecimalType(1)));
+        assertThat(pt.getLongitude(), is(new DecimalType(2)));
+        assertThat(pt.getAltitude(), is(new DecimalType(3)));
+    }
+
+    @Test
+    public void testConstructorTrim2() {
+        PointType pt = new PointType("1, 2, 3");
+        assertNotNull(pt);
+        assertThat(pt.getLatitude(), is(new DecimalType(1)));
+        assertThat(pt.getLongitude(), is(new DecimalType(2)));
+        assertThat(pt.getAltitude(), is(new DecimalType(3)));
+    }
+
+    @Test
+    public void testConstructorTrim3() {
+        PointType pt = new PointType("1, 2");
+        assertNotNull(pt);
+        assertThat(pt.getLatitude(), is(new DecimalType(1)));
+        assertThat(pt.getLongitude(), is(new DecimalType(2)));
+    }
+
+    @Test
+    public void testConstructorTrim4() {
+        PointType pt = new PointType("1 , 2 , 3");
+        assertNotNull(pt);
+        assertThat(pt.getLatitude(), is(new DecimalType(1)));
+        assertThat(pt.getLongitude(), is(new DecimalType(2)));
+        assertThat(pt.getAltitude(), is(new DecimalType(3)));
+    }
+
+    @Test
+    public void testConstructorTrim5() {
+        PointType pt = new PointType("1 , 2");
+        assertNotNull(pt);
+        assertThat(pt.getLatitude(), is(new DecimalType(1)));
+        assertThat(pt.getLongitude(), is(new DecimalType(2)));
+    }
+
+    @Test
+    public void testConstructorTrim6() {
+        PointType pt = new PointType("  1 ,   2   ,  3   ");
+        assertNotNull(pt);
+        assertThat(pt.getLatitude(), is(new DecimalType(1)));
+        assertThat(pt.getLongitude(), is(new DecimalType(2)));
+        assertThat(pt.getAltitude(), is(new DecimalType(3)));
     }
 
     @Test

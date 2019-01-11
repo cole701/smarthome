@@ -1,14 +1,22 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.lifx.internal.protocol;
 
 import java.util.HashMap;
 import java.util.Map;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 
 /**
  * A static factory for registering packet types that may be received and
@@ -20,16 +28,18 @@ import java.util.Map;
  * @author Karel Goderis - Enhancement for the V2 LIFX Firmware and LAN Protocol Specification
  * @author Wouter Born - Support LIFX 2016 product line-up and infrared functionality
  */
+@NonNullByDefault
 public class PacketFactory {
 
-    private static PacketFactory instance;
+    private static @Nullable PacketFactory instance;
 
-    public synchronized static PacketFactory getInstance() {
-        if (instance == null) {
-            instance = new PacketFactory();
+    public static synchronized PacketFactory getInstance() {
+        PacketFactory result = instance;
+        if (result == null) {
+            result = new PacketFactory();
+            instance = result;
         }
-
-        return instance;
+        return result;
     }
 
     private final Map<Integer, PacketHandler<?>> handlers;
@@ -39,6 +49,7 @@ public class PacketFactory {
 
         register(AcknowledgementResponse.class);
         register(EchoRequestResponse.class);
+        register(GetColorZonesRequest.class);
         register(GetEchoRequest.class);
         register(GetGroupRequest.class);
         register(GetHostFirmwareRequest.class);
@@ -48,17 +59,16 @@ public class PacketFactory {
         register(GetLightInfraredRequest.class);
         register(GetLightPowerRequest.class);
         register(GetLocationRequest.class);
-        register(GetMeshFirmwareRequest.class);
         register(GetPowerRequest.class);
         register(GetRequest.class);
         register(GetServiceRequest.class);
         register(GetTagLabelsRequest.class);
         register(GetTagsRequest.class);
-        register(GetTagsRequest.class);
         register(GetVersionRequest.class);
         register(GetWifiFirmwareRequest.class);
         register(GetWifiInfoRequest.class);
         register(SetColorRequest.class);
+        register(SetColorZonesRequest.class);
         register(SetDimAbsoluteRequest.class);
         register(SetLabelRequest.class);
         register(SetLightInfraredRequest.class);
@@ -73,13 +83,14 @@ public class PacketFactory {
         register(StateLightInfraredResponse.class);
         register(StateLightPowerResponse.class);
         register(StateLocationResponse.class);
-        register(StateMeshFirmwareResponse.class);
+        register(StateMultiZoneResponse.class);
         register(StatePowerResponse.class);
         register(StateResponse.class);
         register(StateServiceResponse.class);
         register(StateVersionResponse.class);
         register(StateWifiFirmwareResponse.class);
         register(StateWifiInfoResponse.class);
+        register(StateZoneResponse.class);
         register(TagLabelsResponse.class);
         register(TagsResponse.class);
     }
@@ -134,11 +145,11 @@ public class PacketFactory {
      * @param packetType the packet type of the handler to retrieve
      * @return a packet handler, or null
      */
-    public PacketHandler<?> getHandler(int packetType) {
+    public @Nullable PacketHandler<?> getHandler(int packetType) {
         return handlers.get(packetType);
     }
 
-    public static PacketHandler<?> createHandler(int packetType) {
+    public static @Nullable PacketHandler<?> createHandler(int packetType) {
         return getInstance().getHandler(packetType);
     }
 

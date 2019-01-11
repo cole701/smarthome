@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.net;
 
@@ -39,44 +44,46 @@ public class HttpServiceUtil {
     }
 
     // Utility method that could be used for non-secure and secure port.
-    @SuppressWarnings("rawtypes")
     private static int getHttpServicePortProperty(final BundleContext bc, final String propertyName) {
         Object value;
         int port = -1;
 
         // Try to find the port by using the service property (respect service ranking).
+        final ServiceReference<?>[] refs;
         try {
-            int candidate = Integer.MIN_VALUE;
-            final ServiceReference[] refs = bc.getAllServiceReferences("org.osgi.service.http.HttpService", null);
-            if (refs != null) {
-                for (final ServiceReference ref : refs) {
-                    value = ref.getProperty(propertyName);
-                    if (value == null) {
-                        continue;
-                    }
-                    final int servicePort;
-                    try {
-                        servicePort = Integer.parseInt(value.toString());
-                    } catch (final NumberFormatException ex) {
-                        continue;
-                    }
-                    value = ref.getProperty(Constants.SERVICE_RANKING);
-                    final int serviceRanking;
-                    if (value == null || !(value instanceof Integer)) {
-                        serviceRanking = 0;
-                    } else {
-                        serviceRanking = (Integer) value;
-                    }
-                    if (serviceRanking >= candidate) {
-                        candidate = serviceRanking;
-                        port = servicePort;
-                    }
-                }
-            }
+            refs = bc.getAllServiceReferences("org.osgi.service.http.HttpService", null);
         } catch (final InvalidSyntaxException ex) {
             // This point of code should never be reached.
             final Logger logger = LoggerFactory.getLogger(HttpServiceUtil.class);
             logger.warn("This error should only be thrown if a filter could not be parsed. We don't use a filter...");
+            return -1;
+        }
+
+        if (refs != null) {
+            int candidate = Integer.MIN_VALUE;
+            for (final ServiceReference<?> ref : refs) {
+                value = ref.getProperty(propertyName);
+                if (value == null) {
+                    continue;
+                }
+                final int servicePort;
+                try {
+                    servicePort = Integer.parseInt(value.toString());
+                } catch (final NumberFormatException ex) {
+                    continue;
+                }
+                value = ref.getProperty(Constants.SERVICE_RANKING);
+                final int serviceRanking;
+                if (value == null || !(value instanceof Integer)) {
+                    serviceRanking = 0;
+                } else {
+                    serviceRanking = (Integer) value;
+                }
+                if (serviceRanking >= candidate) {
+                    candidate = serviceRanking;
+                    port = servicePort;
+                }
+            }
         }
         if (port > 0) {
             return port;

@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing;
 
@@ -13,8 +18,13 @@ import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.config.core.Configuration;
 import org.eclipse.smarthome.core.items.Item;
+import org.eclipse.smarthome.core.thing.binding.builder.ChannelBuilder;
+import org.eclipse.smarthome.core.thing.type.AutoUpdatePolicy;
 import org.eclipse.smarthome.core.thing.type.ChannelKind;
 import org.eclipse.smarthome.core.thing.type.ChannelTypeUID;
 
@@ -30,19 +40,21 @@ import org.eclipse.smarthome.core.thing.type.ChannelTypeUID;
  * @author Chris Jackson - Added properties, label, description
  * @author Kai Kreuzer - Removed linked items from channel
  */
+@NonNullByDefault
 public class Channel {
 
-    private String acceptedItemType;
+    private @Nullable String acceptedItemType;
 
-    private ChannelKind kind;
+    private final ChannelKind kind;
 
+    @NonNullByDefault({}) // uid might not have been initialized by the default constructor.
     private ChannelUID uid;
 
-    private ChannelTypeUID channelTypeUID;
+    private @Nullable ChannelTypeUID channelTypeUID;
 
-    private String label;
+    private @Nullable String label;
 
-    private String description;
+    private @Nullable String description;
 
     private Configuration configuration;
 
@@ -50,12 +62,21 @@ public class Channel {
 
     private Set<String> defaultTags = new LinkedHashSet<>();
 
+    private @Nullable AutoUpdatePolicy autoUpdatePolicy;
+
     /**
      * Package protected default constructor to allow reflective instantiation.
      */
     Channel() {
+        this.kind = ChannelKind.STATE;
+        this.configuration = new Configuration();
+        this.properties = Collections.unmodifiableMap(new HashMap<String, String>(0));
     }
 
+    /**
+     * @deprecated - use {@link ChannelBuilder} instead
+     */
+    @Deprecated
     public Channel(ChannelUID uid, String acceptedItemType) {
         this.uid = uid;
         this.acceptedItemType = acceptedItemType;
@@ -64,42 +85,57 @@ public class Channel {
         this.properties = Collections.unmodifiableMap(new HashMap<String, String>(0));
     }
 
+    /**
+     * @deprecated - use {@link ChannelBuilder} instead
+     */
+    @Deprecated
     public Channel(ChannelUID uid, String acceptedItemType, Configuration configuration) {
-        this(uid, null, acceptedItemType, ChannelKind.STATE, configuration, new HashSet<String>(0), null, null, null);
+        this(uid, null, acceptedItemType, ChannelKind.STATE, configuration, new HashSet<String>(0), null, null, null,
+                null);
     }
 
+    /**
+     * @deprecated - use {@link ChannelBuilder} instead
+     */
+    @Deprecated
     public Channel(ChannelUID uid, String acceptedItemType, Set<String> defaultTags) {
-        this(uid, null, acceptedItemType, ChannelKind.STATE, null,
-                defaultTags == null ? new HashSet<String>(0) : defaultTags, null, null, null);
+        this(uid, null, acceptedItemType, ChannelKind.STATE, null, defaultTags, null, null, null, null);
     }
 
+    /**
+     * @deprecated - use {@link ChannelBuilder} instead
+     */
+    @Deprecated
     public Channel(ChannelUID uid, String acceptedItemType, Configuration configuration, Set<String> defaultTags,
             Map<String, String> properties) {
-        this(uid, null, acceptedItemType, ChannelKind.STATE, null,
-                defaultTags == null ? new HashSet<String>(0) : defaultTags, properties, null, null);
+        this(uid, null, acceptedItemType, ChannelKind.STATE, null, defaultTags, properties, null, null, null);
     }
 
-    public Channel(ChannelUID uid, ChannelTypeUID channelTypeUID, String acceptedItemType, ChannelKind kind,
-            Configuration configuration, Set<String> defaultTags, Map<String, String> properties, String label,
-            String description) {
-        if (kind == null) {
-            throw new IllegalArgumentException("kind must not be null");
-        }
-
+    /**
+     * @deprecated - use ChannelBuilder instead
+     */
+    @Deprecated
+    public Channel(ChannelUID uid, @Nullable ChannelTypeUID channelTypeUID, @Nullable String acceptedItemType,
+            ChannelKind kind, @Nullable Configuration configuration, Set<String> defaultTags,
+            @Nullable Map<String, String> properties, @Nullable String label, @Nullable String description,
+            @Nullable AutoUpdatePolicy autoUpdatePolicy) {
         this.uid = uid;
         this.channelTypeUID = channelTypeUID;
         this.acceptedItemType = acceptedItemType;
-        this.configuration = configuration;
         this.kind = kind;
         this.label = label;
         this.description = description;
-        this.properties = properties;
+        this.autoUpdatePolicy = autoUpdatePolicy;
         this.defaultTags = Collections.<String> unmodifiableSet(new HashSet<String>(defaultTags));
-        if (this.configuration == null) {
+        if (configuration == null) {
             this.configuration = new Configuration();
+        } else {
+            this.configuration = configuration;
         }
-        if (this.properties == null) {
+        if (properties == null) {
             this.properties = Collections.unmodifiableMap(new HashMap<String, String>(0));
+        } else {
+            this.properties = properties;
         }
     }
 
@@ -108,7 +144,7 @@ public class Channel {
      *
      * @return accepted item type
      */
-    public String getAcceptedItemType() {
+    public @Nullable String getAcceptedItemType() {
         return this.acceptedItemType;
     }
 
@@ -118,11 +154,6 @@ public class Channel {
      * @return channel kind
      */
     public ChannelKind getKind() {
-        if (kind == null) {
-            // STATE is the default.
-            return ChannelKind.STATE;
-        }
-
         return kind;
     }
 
@@ -140,7 +171,7 @@ public class Channel {
      *
      * @return channel type UID or null if no channel type is specified
      */
-    public ChannelTypeUID getChannelTypeUID() {
+    public @Nullable ChannelTypeUID getChannelTypeUID() {
         return channelTypeUID;
     }
 
@@ -150,7 +181,7 @@ public class Channel {
      *
      * @return the label for the channel. Can be null.
      */
-    public String getLabel() {
+    public @Nullable String getLabel() {
         return this.label;
     }
 
@@ -161,7 +192,7 @@ public class Channel {
      *
      * @return the description for the channel. Can be null.
      */
-    public String getDescription() {
+    public @Nullable String getDescription() {
         return this.description;
     }
 
@@ -175,12 +206,14 @@ public class Channel {
     }
 
     /**
-     * Returns the channel properties
+     * Returns an immutable copy of the {@link Channel} properties.
      *
-     * @return channel properties (not null)
+     * @return an immutable copy of the {@link Channel} properties (not {@code null})
      */
     public Map<String, String> getProperties() {
-        return properties;
+        synchronized (this) {
+            return Collections.unmodifiableMap(new HashMap<>(properties));
+        }
     }
 
     /**
@@ -191,4 +224,9 @@ public class Channel {
     public Set<String> getDefaultTags() {
         return defaultTags;
     }
+
+    public @Nullable AutoUpdatePolicy getAutoUpdatePolicy() {
+        return autoUpdatePolicy;
+    }
+
 }

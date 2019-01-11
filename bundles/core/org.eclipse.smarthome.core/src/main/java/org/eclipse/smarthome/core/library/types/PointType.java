@@ -1,16 +1,27 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.library.types;
 
 import java.math.BigDecimal;
+import java.util.Arrays;
+import java.util.Formatter;
+import java.util.List;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.types.Command;
 import org.eclipse.smarthome.core.types.ComplexType;
 import org.eclipse.smarthome.core.types.PrimitiveType;
@@ -24,19 +35,23 @@ import org.eclipse.smarthome.core.types.State;
  * @author John Cocula
  *
  */
+@NonNullByDefault
 public class PointType implements ComplexType, Command, State {
 
+    // external format patterns for output
+    public static final String LOCATION_PATTERN = "%2$s°N %3$s°E %1$sm";
+
     public static final double EARTH_GRAVITATIONAL_CONSTANT = 3.986004418e14;
-    public static final double WGS84_a = 6378137; // The equatorial radius of WGS84 ellipsoid (6378137 m).
+    public static final double WGS84_A = 6378137; // The equatorial radius of WGS84 ellipsoid (6378137 m).
 
     // constants for the constituents
     public static final String KEY_LATITUDE = "lat";
     public static final String KEY_LONGITUDE = "long";
     public static final String KEY_ALTITUDE = "alt";
 
-    private static final BigDecimal circle = new BigDecimal(360);
-    private static final BigDecimal flat = new BigDecimal(180);
-    private static final BigDecimal right = new BigDecimal(90);
+    private static final BigDecimal CIRCLE = new BigDecimal(360);
+    private static final BigDecimal FLAT = new BigDecimal(180);
+    private static final BigDecimal RIGHT = new BigDecimal(90);
 
     private BigDecimal latitude = BigDecimal.ZERO; // in decimal degrees
     private BigDecimal longitude = BigDecimal.ZERO; // in decimal degrees
@@ -70,16 +85,13 @@ public class PointType implements ComplexType, Command, State {
     }
 
     public PointType(String value) {
-        if (value == null) {
-            throw new IllegalArgumentException("Constructor argument must not be null");
-        }
         if (!value.isEmpty()) {
-            String[] elements = value.split(",");
-            if (elements.length >= 2) {
-                canonicalize(new DecimalType(elements[0]), new DecimalType(elements[1]));
-                if (elements.length == 3) {
-                    setAltitude(new DecimalType(elements[2]));
-                } else if (elements.length > 3) {
+            List<String> elements = Arrays.stream(value.split(",")).map(in -> in.trim()).collect(Collectors.toList());
+            if (elements.size() >= 2) {
+                canonicalize(new DecimalType(elements.get(0)), new DecimalType(elements.get(1)));
+                if (elements.size() == 3) {
+                    setAltitude(new DecimalType(elements.get(2)));
+                } else if (elements.size() > 3) {
                     throw new IllegalArgumentException(value
                             + " is not a valid PointType syntax. The syntax must not consist of more than 3 elements.");
                 }
@@ -110,7 +122,7 @@ public class PointType implements ComplexType, Command, State {
     public DecimalType getGravity() {
         double latRad = Math.toRadians(latitude.doubleValue());
         double deltaG = -2000.0 * (altitude.doubleValue() / 1000) * EARTH_GRAVITATIONAL_CONSTANT
-                / (Math.pow(WGS84_a, 3.0));
+                / (Math.pow(WGS84_A, 3.0));
         double sin2lat = Math.sin(latRad) * Math.sin(latRad);
         double sin22lat = Math.sin(2.0 * latRad) * Math.sin(2.0 * latRad);
         double result = (9.780327 * (1.0 + 5.3024e-3 * sin2lat - 5.8e-6 * sin22lat) + deltaG);
@@ -132,22 +144,26 @@ public class PointType implements ComplexType, Command, State {
         double a = Math.pow(Math.sin(dLat / 2D), 2D) + Math.cos(Math.toRadians(this.latitude.doubleValue()))
                 * Math.cos(Math.toRadians(otherPoint.latitude.doubleValue())) * Math.pow(Math.sin(dLong / 2D), 2D);
         double c = 2D * Math.atan2(Math.sqrt(a), Math.sqrt(1D - a));
-        return new DecimalType(WGS84_a * c);
+        return new DecimalType(WGS84_A * c);
     }
 
     /**
-     * <p>
-     * Formats the value of this type according to a pattern (@see {@link Formatter}). One single value of this type can
+     * Formats the value of this type according to a pattern (see {@link Formatter}). One single value of this type can
      * be referenced by the pattern using an index. The item order is defined by the natural (alphabetical) order of
      * their keys.
-     * </p>
      *
-     * @param pattern the pattern to use containing indexes to reference the
-     *            single elements of this type.
+     * @param pattern the pattern to use containing indexes to reference the single elements of this type
+     * @return the formatted string
      */
     @Override
-    public String format(String pattern) {
-        return String.format(pattern, getConstituents().values().toArray());
+    public String format(@Nullable String pattern) {
+        String formatPattern = pattern;
+
+        if (formatPattern == null || "%s".equals(formatPattern)) {
+            formatPattern = LOCATION_PATTERN;
+        }
+
+        return String.format(formatPattern, getConstituents().values().toArray());
     }
 
     public static PointType valueOf(String value) {
@@ -174,7 +190,7 @@ public class PointType implements ComplexType, Command, State {
 
     @Override
     public SortedMap<String, PrimitiveType> getConstituents() {
-        SortedMap<String, PrimitiveType> result = new TreeMap<String, PrimitiveType>();
+        SortedMap<String, PrimitiveType> result = new TreeMap<>();
         result.put(KEY_LATITUDE, getLatitude());
         result.put(KEY_LONGITUDE, getLongitude());
         result.put(KEY_ALTITUDE, getAltitude());
@@ -189,39 +205,39 @@ public class PointType implements ComplexType, Command, State {
      * </pre>
      */
     private void canonicalize(DecimalType aLat, DecimalType aLon) {
-        latitude = flat.add(aLat.toBigDecimal()).remainder(circle);
+        latitude = FLAT.add(aLat.toBigDecimal()).remainder(CIRCLE);
         longitude = aLon.toBigDecimal();
         if (latitude.compareTo(BigDecimal.ZERO) == -1) {
-            latitude.add(circle);
+            latitude = latitude.add(CIRCLE);
         }
 
-        latitude = latitude.subtract(flat);
-        if (latitude.compareTo(right) == 1) {
-            latitude = flat.subtract(latitude);
-            longitude = longitude.add(flat);
-        } else if (latitude.compareTo(right.negate()) == -1) {
-            latitude = flat.negate().subtract(latitude);
-            longitude = longitude.add(flat);
+        latitude = latitude.subtract(FLAT);
+        if (latitude.compareTo(RIGHT) == 1) {
+            latitude = FLAT.subtract(latitude);
+            longitude = longitude.add(FLAT);
+        } else if (latitude.compareTo(RIGHT.negate()) == -1) {
+            latitude = FLAT.negate().subtract(latitude);
+            longitude = longitude.add(FLAT);
         }
 
-        longitude = flat.add(longitude).remainder(circle);
+        longitude = FLAT.add(longitude).remainder(CIRCLE);
         if (longitude.compareTo(BigDecimal.ZERO) <= 0) {
-            longitude = longitude.add(circle);
+            longitude = longitude.add(CIRCLE);
         }
-        longitude = longitude.subtract(flat);
+        longitude = longitude.subtract(FLAT);
 
     }
 
     @Override
     public int hashCode() {
-        int tmp = 10000 * (getLatitude() == null ? 0 : getLatitude().hashCode());
-        tmp += 100 * (getLongitude() == null ? 0 : getLongitude().hashCode());
-        tmp += (getAltitude() == null ? 0 : getAltitude().hashCode());
+        int tmp = 10000 * getLatitude().hashCode();
+        tmp += 100 * getLongitude().hashCode();
+        tmp += getAltitude().hashCode();
         return tmp;
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
         if (this == obj) {
             return true;
         }
@@ -232,14 +248,6 @@ public class PointType implements ComplexType, Command, State {
             return false;
         }
         PointType other = (PointType) obj;
-        if ((getLatitude() != null && other.getLatitude() == null)
-                || (getLatitude() == null && other.getLatitude() != null)
-                || (getLongitude() != null && other.getLongitude() == null)
-                || (getLongitude() == null && other.getLongitude() != null)
-                || (getAltitude() != null && other.getAltitude() == null)
-                || (getAltitude() == null && other.getAltitude() != null)) {
-            return false;
-        }
         if (!getLatitude().equals(other.getLatitude()) || !getLongitude().equals(other.getLongitude())
                 || !getAltitude().equals(other.getAltitude())) {
             return false;

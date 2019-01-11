@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.audio;
 
@@ -11,6 +16,8 @@ import java.io.IOException;
 import java.util.Locale;
 import java.util.Set;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.library.types.PercentType;
 
 /**
@@ -19,7 +26,10 @@ import org.eclipse.smarthome.core.library.types.PercentType;
  *
  * @author Harald Kuhn - Initial API
  * @author Kelly Davis - Modified to match discussion in #584
+ * @author Christoph Weitkamp - Added getSupportedStreams() and UnsupportedAudioStreamException
+ * 
  */
+@NonNullByDefault
 public interface AudioSink {
 
     /**
@@ -35,20 +45,26 @@ public interface AudioSink {
      * @param locale the locale to provide the label for
      * @return a localized string to be used in UIs
      */
+    @Nullable
     public String getLabel(Locale locale);
 
     /**
      * Processes the passed {@link AudioStream}
      *
+     * If the passed {@link AudioStream} is not supported by this instance, an {@link UnsupportedAudioStreamException}
+     * is thrown.
+     *
      * If the passed {@link AudioStream} has a {@link AudioFormat} not supported by this instance,
-     * an {@link UnsupportedAudioFormatException} is thrown. In case the audioStream is null, this should be interpreted
-     * as a request to end any currently playing stream.
+     * an {@link UnsupportedAudioFormatException} is thrown.
+     *
+     * In case the audioStream is null, this should be interpreted as a request to end any currently playing stream.
      *
      * @param audioStream the audio stream to play or null to keep quiet
-     *
      * @throws UnsupportedAudioFormatException If audioStream format is not supported
+     * @throws UnsupportedAudioStreamException If audioStream is not supported
      */
-    void process(AudioStream audioStream) throws UnsupportedAudioFormatException;
+    void process(@Nullable AudioStream audioStream)
+            throws UnsupportedAudioFormatException, UnsupportedAudioStreamException;
 
     /**
      * Gets a set containing all supported audio formats
@@ -56,6 +72,13 @@ public interface AudioSink {
      * @return A Set containing all supported audio formats
      */
     public Set<AudioFormat> getSupportedFormats();
+
+    /**
+     * Gets a set containing all supported audio stream formats
+     * 
+     * @return A Set containing all supported audio stream formats
+     */
+    public Set<Class<? extends AudioStream>> getSupportedStreams();
 
     /**
      * Gets the volume

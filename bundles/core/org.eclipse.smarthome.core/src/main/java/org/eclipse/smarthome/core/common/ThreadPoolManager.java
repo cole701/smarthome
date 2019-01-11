@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.common;
 
@@ -12,7 +17,6 @@ import java.util.Map.Entry;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
@@ -20,6 +24,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import org.eclipse.smarthome.core.internal.common.WrappedScheduledExecutorService;
+import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,30 +36,39 @@ import org.slf4j.LoggerFactory;
  * The created thread pools have named threads, so that it is easy to find them in the debugger. Additionally, it is
  * possible to configure the pool sizes through the configuration admin service, so that solutions have the chance to
  * tweak the pool sizes according to their needs.
- * </p>
+ *
  * <p>
  * The configuration can be done as
  * <br/>
  * {@code org.eclipse.smarthome.threadpool:<poolName>=<poolSize>}
  * <br/>
  * All threads will time out after {@link THREAD_TIMEOUT}.
- * </p>
  *
  * @author Kai Kreuzer - Initial contribution
  *
  */
+@Component(configurationPid = ThreadPoolManager.CONFIGURATION_PID)
 public class ThreadPoolManager {
 
-    private final static Logger logger = LoggerFactory.getLogger(ThreadPoolManager.class);
+    public static final String CONFIGURATION_PID = "org.eclipse.smarthome.threadpool";
+
+    /**
+     * The common thread pool is reserved for occasional, light weight tasks that run quickly, and
+     * use little resources to execute. Tasks that do not fit into this category should setup
+     * their own dedicated pool or permanent thread.
+     */
+    public static final String THREAD_POOL_NAME_COMMON = "common";
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ThreadPoolManager.class);
 
     protected static final int DEFAULT_THREAD_POOL_SIZE = 5;
 
     protected static final long THREAD_TIMEOUT = 65L;
     protected static final long THREAD_MONITOR_SLEEP = 60000;
 
-    static protected Map<String, ExecutorService> pools = new WeakHashMap<>();
+    protected static Map<String, ExecutorService> pools = new WeakHashMap<>();
 
-    static private Map<String, Integer> configs = new ConcurrentHashMap<>();
+    private static Map<String, Integer> configs = new ConcurrentHashMap<>();
 
     protected void activate(Map<String, Object> properties) {
         modified(properties);
@@ -77,15 +92,15 @@ public class ThreadPoolManager {
                     ThreadPoolExecutor pool = (ThreadPoolExecutor) pools.get(poolName);
                     if (pool instanceof ScheduledThreadPoolExecutor) {
                         pool.setCorePoolSize(poolSize);
-                        logger.debug("Updated scheduled thread pool '{}' to size {}",
+                        LOGGER.debug("Updated scheduled thread pool '{}' to size {}",
                                 new Object[] { poolName, poolSize });
                     } else if (pool instanceof QueueingThreadPoolExecutor) {
                         pool.setMaximumPoolSize(poolSize);
-                        logger.debug("Updated queuing thread pool '{}' to size {}",
+                        LOGGER.debug("Updated queuing thread pool '{}' to size {}",
                                 new Object[] { poolName, poolSize });
                     }
                 } catch (NumberFormatException e) {
-                    logger.warn("Ignoring invalid configuration for pool '{}': {} - value must be an integer",
+                    LOGGER.warn("Ignoring invalid configuration for pool '{}': {} - value must be an integer",
                             new Object[] { poolName, config });
                     continue;
                 }
@@ -100,7 +115,7 @@ public class ThreadPoolManager {
      * @param poolName a short name used to identify the pool, e.g. "discovery"
      * @return an instance to use
      */
-    static public ScheduledExecutorService getScheduledPool(String poolName) {
+    public static ScheduledExecutorService getScheduledPool(String poolName) {
         ExecutorService pool = pools.get(poolName);
         if (pool == null) {
             synchronized (pools) {
@@ -108,11 +123,12 @@ public class ThreadPoolManager {
                 pool = pools.get(poolName);
                 if (pool == null) {
                     int cfg = getConfig(poolName);
-                    pool = Executors.newScheduledThreadPool(cfg, new NamedThreadFactory(poolName));
+                    pool = new WrappedScheduledExecutorService(cfg, new NamedThreadFactory(poolName));
                     ((ThreadPoolExecutor) pool).setKeepAliveTime(THREAD_TIMEOUT, TimeUnit.SECONDS);
                     ((ThreadPoolExecutor) pool).allowCoreThreadTimeOut(true);
+                    ((ScheduledThreadPoolExecutor)pool).setRemoveOnCancelPolicy(true);
                     pools.put(poolName, pool);
-                    logger.debug("Created scheduled thread pool '{}' of size {}", new Object[] { poolName, cfg });
+                    LOGGER.debug("Created scheduled thread pool '{}' of size {}", new Object[] { poolName, cfg });
                 }
             }
         }
@@ -130,7 +146,7 @@ public class ThreadPoolManager {
      * @param poolName a short name used to identify the pool, e.g. "discovery"
      * @return an instance to use
      */
-    static public ExecutorService getPool(String poolName) {
+    public static ExecutorService getPool(String poolName) {
         ExecutorService pool = pools.get(poolName);
         if (pool == null) {
             synchronized (pools) {
@@ -142,7 +158,7 @@ public class ThreadPoolManager {
                     ((ThreadPoolExecutor) pool).setKeepAliveTime(THREAD_TIMEOUT, TimeUnit.SECONDS);
                     ((ThreadPoolExecutor) pool).allowCoreThreadTimeOut(true);
                     pools.put(poolName, pool);
-                    logger.debug("Created thread pool '{}' with size {}", new Object[] { poolName, cfg });
+                    LOGGER.debug("Created thread pool '{}' with size {}", new Object[] { poolName, cfg });
                 }
             }
         }

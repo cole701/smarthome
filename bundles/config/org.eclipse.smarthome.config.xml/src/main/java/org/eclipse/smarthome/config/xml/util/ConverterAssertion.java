@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.config.xml.util;
 
@@ -29,11 +34,9 @@ public class ConverterAssertion {
      *
      * @param propertyName the name of the property to be checked (must neither be null, nor empty)
      * @param property the property to be checked (could be null or empty)
-     *
      * @throws ConversionException if the condition does not fit
      */
     public static void assertNeitherNullNorEmpty(String propertyName, String property) throws ConversionException {
-
         if ((property == null) || (property.isEmpty())) {
             throw new ConversionException("The " + propertyName + " must neither be null nor empty!");
         }
@@ -59,7 +62,6 @@ public class ConverterAssertion {
      * @throws ConversionException if the condition does not fit
      */
     public static void assertNoAttribute(HierarchicalStreamReader reader) throws ConversionException {
-
         if (reader.getAttributeCount() > 0) {
             throw new ConversionException("The parameter '" + reader.getNodeName() + "' uses unknown attributes!");
         }

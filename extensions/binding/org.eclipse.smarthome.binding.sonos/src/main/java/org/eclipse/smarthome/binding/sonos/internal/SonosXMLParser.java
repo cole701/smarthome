@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.sonos.internal;
 
@@ -20,6 +25,7 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.commons.lang.StringEscapeUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.Attributes;
@@ -37,9 +43,9 @@ import org.xml.sax.helpers.XMLReaderFactory;
  */
 public class SonosXMLParser {
 
-    static final Logger logger = LoggerFactory.getLogger(SonosXMLParser.class);
+    static final Logger LOGGER = LoggerFactory.getLogger(SonosXMLParser.class);
 
-    private static MessageFormat METADATA_FORMAT = new MessageFormat(
+    private static final MessageFormat METADATA_FORMAT = new MessageFormat(
             "<DIDL-Lite xmlns:dc=\"http://purl.org/dc/elements/1.1/\" "
                     + "xmlns:upnp=\"urn:schemas-upnp-org:metadata-1-0/upnp/\" "
                     + "xmlns:r=\"urn:schemas-rinconnetworks-com:metadata-1-0/\" "
@@ -87,9 +93,9 @@ public class SonosXMLParser {
             reader.setContentHandler(handler);
             reader.parse(new InputSource(new StringReader(xml)));
         } catch (IOException e) {
-            logger.error("Could not parse Alarms from string '{}'", xml);
+            LOGGER.error("Could not parse Alarms from string '{}'", xml);
         } catch (SAXException s) {
-            logger.error("Could not parse Alarms from string '{}'", xml);
+            LOGGER.error("Could not parse Alarms from string '{}'", xml);
         }
         return handler.getAlarms();
     }
@@ -107,9 +113,9 @@ public class SonosXMLParser {
             reader.setContentHandler(handler);
             reader.parse(new InputSource(new StringReader(xml)));
         } catch (IOException e) {
-            logger.error("Could not parse Entries from string '{}'", xml);
+            LOGGER.error("Could not parse Entries from string '{}'", xml);
         } catch (SAXException s) {
-            logger.error("Could not parse Entries from string '{}'", xml);
+            LOGGER.error("Could not parse Entries from string '{}'", xml);
         }
 
         return handler.getArtists();
@@ -130,9 +136,9 @@ public class SonosXMLParser {
         try {
             reader.parse(new InputSource(new StringReader(xml)));
         } catch (IOException e) {
-            logger.error("Could not parse Resource MetaData from String '{}'", xml);
+            LOGGER.error("Could not parse Resource MetaData from String '{}'", xml);
         } catch (SAXException s) {
-            logger.error("Could not parse Resource MetaData from string '{}'", xml);
+            LOGGER.error("Could not parse Resource MetaData from string '{}'", xml);
         }
         return handler.getMetaData();
     }
@@ -152,13 +158,12 @@ public class SonosXMLParser {
             reader.parse(new InputSource(new StringReader(xml)));
         } catch (IOException e) {
             // This should never happen - we're not performing I/O!
-            logger.error("Could not parse ZoneGroup from string '{}'", xml);
+            LOGGER.error("Could not parse ZoneGroup from string '{}'", xml);
         } catch (SAXException s) {
-            logger.error("Could not parse ZoneGroup from string '{}'", xml);
+            LOGGER.error("Could not parse ZoneGroup from string '{}'", xml);
         }
 
         return handler.getGroups();
-
     }
 
     public static List<String> getRadioTimeFromXML(String xml) {
@@ -169,13 +174,12 @@ public class SonosXMLParser {
             reader.parse(new InputSource(new StringReader(xml)));
         } catch (IOException e) {
             // This should never happen - we're not performing I/O!
-            logger.error("Could not parse RadioTime from string '{}'", xml);
+            LOGGER.error("Could not parse RadioTime from string '{}'", xml);
         } catch (SAXException s) {
-            logger.error("Could not parse RadioTime from string '{}'", xml);
+            LOGGER.error("Could not parse RadioTime from string '{}'", xml);
         }
 
         return handler.getTextFields();
-
     }
 
     public static Map<String, String> getRenderingControlFromXML(String xml) {
@@ -186,9 +190,9 @@ public class SonosXMLParser {
             reader.parse(new InputSource(new StringReader(xml)));
         } catch (IOException e) {
             // This should never happen - we're not performing I/O!
-            logger.error("Could not parse Rendering Control from string '{}'", xml);
+            LOGGER.error("Could not parse Rendering Control from string '{}'", xml);
         } catch (SAXException s) {
-            logger.error("Could not parse Rendering Control from string '{}'", xml);
+            LOGGER.error("Could not parse Rendering Control from string '{}'", xml);
         }
         return handler.getChanges();
     }
@@ -201,9 +205,9 @@ public class SonosXMLParser {
             reader.parse(new InputSource(new StringReader(xml)));
         } catch (IOException e) {
             // This should never happen - we're not performing I/O!
-            logger.error("Could not parse AV Transport from string '{}'", xml);
+            LOGGER.error("Could not parse AV Transport from string '{}'", xml);
         } catch (SAXException s) {
-            logger.error("Could not parse AV Transport from string '{}'", xml);
+            LOGGER.error("Could not parse AV Transport from string '{}'", xml);
         }
         return handler.getChanges();
     }
@@ -216,15 +220,30 @@ public class SonosXMLParser {
             reader.parse(new InputSource(new StringReader(xml)));
         } catch (IOException e) {
             // This should never happen - we're not performing I/O!
-            logger.error("Could not parse MetaData from string '{}'", xml);
+            LOGGER.error("Could not parse MetaData from string '{}'", xml);
         } catch (SAXException s) {
-            logger.error("Could not parse MetaData from string '{}'", xml);
+            LOGGER.error("Could not parse MetaData from string '{}'", xml);
         }
 
         return handler.getMetaData();
     }
 
-    static private class EntryHandler extends DefaultHandler {
+    public static List<SonosMusicService> getMusicServicesFromXML(String xml) {
+        MusicServiceHandler handler = new MusicServiceHandler();
+        try {
+            XMLReader reader = XMLReaderFactory.createXMLReader();
+            reader.setContentHandler(handler);
+            reader.parse(new InputSource(new StringReader(xml)));
+        } catch (IOException e) {
+            // This should never happen - we're not performing I/O!
+            LOGGER.error("Could not parse music services from string '{}'", xml);
+        } catch (SAXException s) {
+            LOGGER.error("Could not parse music services from string '{}'", xml);
+        }
+        return handler.getServices();
+    }
+
+    private static class EntryHandler extends DefaultHandler {
 
         // Maintain a set of elements about which it is unuseful to complain about.
         // This list will be initialized on the first failure case
@@ -270,7 +289,6 @@ public class SonosXMLParser {
                 element = Element.TRACK_NUMBER;
             } else if (qName.equals("r:resMD")) {
                 element = Element.RESMD;
-
             } else {
                 if (ignore == null) {
                     ignore = new ArrayList<String>();
@@ -281,7 +299,7 @@ public class SonosXMLParser {
                 }
 
                 if (!ignore.contains(localName)) {
-                    logger.debug("Did not recognise element named {}", localName);
+                    LOGGER.debug("Did not recognise element named {}", localName);
                 }
                 element = null;
             }
@@ -340,7 +358,7 @@ public class SonosXMLParser {
                     try {
                         md = getResourceMetaData(desc.toString());
                     } catch (SAXException ignore) {
-                        logger.debug("Failed to parse embeded", ignore);
+                        LOGGER.debug("Failed to parse embeded", ignore);
                     }
                 }
 
@@ -362,7 +380,7 @@ public class SonosXMLParser {
         }
     }
 
-    static private class ResourceMetaDataHandler extends DefaultHandler {
+    private static class ResourceMetaDataHandler extends DefaultHandler {
 
         private String id;
         private String parentId;
@@ -379,7 +397,6 @@ public class SonosXMLParser {
         @Override
         public void startElement(String uri, String localName, String qName, Attributes attributes)
                 throws SAXException {
-
             if (qName.equals("container") || qName.equals("item")) {
                 id = attributes.getValue("id");
                 parentId = attributes.getValue("parentID");
@@ -432,7 +449,7 @@ public class SonosXMLParser {
         }
     }
 
-    static private class AlarmHandler extends DefaultHandler {
+    private static class AlarmHandler extends DefaultHandler {
 
         private String id;
         private String startTime;
@@ -455,7 +472,6 @@ public class SonosXMLParser {
         @Override
         public void startElement(String uri, String localName, String qName, Attributes attributes)
                 throws SAXException {
-
             if (qName.equals("Alarm")) {
                 id = attributes.getValue("ID");
                 duration = attributes.getValue("Duration");
@@ -473,9 +489,7 @@ public class SonosXMLParser {
 
         @Override
         public void endElement(String uri, String localName, String qName) throws SAXException {
-
             if (qName.equals("Alarm")) {
-
                 int finalID = 0;
                 int finalVolume = 0;
                 boolean finalEnabled = false;
@@ -496,13 +510,12 @@ public class SonosXMLParser {
                         finalIncludeLinkedZones = true;
                     }
                 } catch (Exception e) {
-                    logger.debug("Error parsing Integer");
+                    LOGGER.debug("Error parsing Integer");
                 }
 
                 alarms.add(new SonosAlarm(finalID, startTime, duration, recurrence, finalEnabled, roomUUID, programURI,
                         programMetaData, playMode, finalVolume, finalIncludeLinkedZones));
             }
-
         }
 
         public List<SonosAlarm> getAlarms() {
@@ -510,7 +523,7 @@ public class SonosXMLParser {
         }
     }
 
-    static private class ZoneGroupHandler extends DefaultHandler {
+    private static class ZoneGroupHandler extends DefaultHandler {
 
         private final List<SonosZoneGroup> groups = new ArrayList<SonosZoneGroup>();
         private final List<String> currentGroupPlayers = new ArrayList<String>();
@@ -561,7 +574,7 @@ public class SonosXMLParser {
         }
     }
 
-    static private class OpmlHandler extends DefaultHandler {
+    private static class OpmlHandler extends DefaultHandler {
 
         // <opml version="1">
         // <head>
@@ -599,8 +612,6 @@ public class SonosXMLParser {
                 } else {
                     textField = null;
                 }
-            } else if (qName.equals("logo")) {
-                // logo = attributes.getValue("UUID");
             }
         }
 
@@ -619,7 +630,7 @@ public class SonosXMLParser {
 
     }
 
-    static private class AVTransportEventHandler extends DefaultHandler {
+    private static class AVTransportEventHandler extends DefaultHandler {
 
         /*
          * <Event xmlns="urn:schemas-upnp-org:metadata-1-0/AVT/" xmlns:r="urn:schemas-rinconnetworks-com:metadata-1-0/">
@@ -682,7 +693,7 @@ public class SonosXMLParser {
                 }
             } catch (IllegalArgumentException e) {
                 // this means that localName isn't defined in EventType, which is expected for some elements
-                logger.info("{} is not defined in EventType. ", localName);
+                LOGGER.info("{} is not defined in EventType. ", localName);
             }
         }
 
@@ -692,7 +703,7 @@ public class SonosXMLParser {
 
     }
 
-    static private class MetaDataHandler extends DefaultHandler {
+    private static class MetaDataHandler extends DefaultHandler {
 
         private CurrentElement currentElement = null;
 
@@ -778,7 +789,7 @@ public class SonosXMLParser {
         }
     }
 
-    static private class RenderingControlEventHandler extends DefaultHandler {
+    private static class RenderingControlEventHandler extends DefaultHandler {
 
         private final Map<String, String> changes = new HashMap<String, String>();
 
@@ -787,7 +798,6 @@ public class SonosXMLParser {
 
         @Override
         public void startElement(String uri, String localName, String qName, Attributes atts) throws SAXException {
-
             if ("Volume".equals(qName)) {
                 changes.put(qName + atts.getValue("channel"), atts.getValue("val"));
             } else if ("Mute".equals(qName)) {
@@ -826,6 +836,24 @@ public class SonosXMLParser {
 
     }
 
+    private static class MusicServiceHandler extends DefaultHandler {
+
+        private final List<SonosMusicService> services = new ArrayList<SonosMusicService>();
+
+        @Override
+        public void startElement(String uri, String localName, String qName, Attributes atts) throws SAXException {
+            // All services are of the form <services Id="value" Name="value">...</Service>
+            if ("Service".equals(qName) && atts.getValue("Id") != null && atts.getValue("Name") != null) {
+                services.add(new SonosMusicService(atts.getValue("Id"), atts.getValue("Name")));
+            }
+        }
+
+        public List<SonosMusicService> getServices() {
+            return services;
+        }
+
+    }
+
     public static String getRoomName(String descriptorXML) {
         RoomNameHandler roomNameHandler = new RoomNameHandler();
         try {
@@ -834,12 +862,12 @@ public class SonosXMLParser {
             URL url = new URL(descriptorXML);
             reader.parse(new InputSource(url.openStream()));
         } catch (IOException | SAXException e) {
-            logger.error("Could not parse Sonos room name from string '{}'", descriptorXML);
+            LOGGER.error("Could not parse Sonos room name from string '{}'", descriptorXML);
         }
         return roomNameHandler.getRoomName();
     }
 
-    static private class RoomNameHandler extends DefaultHandler {
+    private static class RoomNameHandler extends DefaultHandler {
 
         private String roomName;
         private boolean roomNameTag;
@@ -872,12 +900,12 @@ public class SonosXMLParser {
             URL url = new URL(descriptorURL.toString());
             reader.parse(new InputSource(url.openStream()));
         } catch (IOException | SAXException e) {
-            logger.error("Could not parse Sonos model name from string '{}'", descriptorURL.toString());
+            LOGGER.error("Could not parse Sonos model name from string '{}'", descriptorURL.toString());
         }
         return modelNameHandler.getModelName();
     }
 
-    static private class ModelNameHandler extends DefaultHandler {
+    private static class ModelNameHandler extends DefaultHandler {
 
         private String modelName;
         private boolean modelNameTag;
@@ -909,15 +937,15 @@ public class SonosXMLParser {
      * @return the extracted players model name without column (:) character used for ThingType creation
      */
     public static String extractModelName(String sonosModelName) {
-        //
-        Matcher matcher = Pattern.compile("\\s(.*)").matcher(sonosModelName);
+        String ret = sonosModelName;
+        Matcher matcher = Pattern.compile("\\s(.*)").matcher(ret);
         if (matcher.find()) {
-            sonosModelName = matcher.group(1);
+            ret = matcher.group(1);
         }
-        if (sonosModelName.contains(":")) {
-            sonosModelName = sonosModelName.replace(":", "");
+        if (ret.contains(":")) {
+            ret = ret.replace(":", "");
         }
-        return sonosModelName;
+        return ret;
     }
 
     public static String compileMetadataString(SonosEntry entry) {
@@ -936,7 +964,10 @@ public class SonosXMLParser {
          * subscription like pandora we need to use the desc string asscoiated
          * with that item.
          */
-        String desc = "RINCON_AssociatedZPUDN";
+        String desc = entry.getDesc();
+        if (desc == null) {
+            desc = "RINCON_AssociatedZPUDN";
+        }
 
         /**
          * If resource meta data exists, use it over the parent data
@@ -948,6 +979,8 @@ public class SonosXMLParser {
             desc = entry.getResourceMetaData().getDesc();
             upnpClass = entry.getResourceMetaData().getUpnpClass();
         }
+
+        title = StringEscapeUtils.escapeXml(title);
 
         String metadata = METADATA_FORMAT.format(new Object[] { id, parentId, title, upnpClass, desc });
 

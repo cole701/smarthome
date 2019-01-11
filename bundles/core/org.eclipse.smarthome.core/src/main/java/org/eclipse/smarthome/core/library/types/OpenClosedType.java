@@ -1,19 +1,29 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.library.types;
 
-import org.eclipse.smarthome.core.library.internal.StateConverterUtil;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.core.types.Command;
-import org.eclipse.smarthome.core.types.Convertible;
 import org.eclipse.smarthome.core.types.PrimitiveType;
 import org.eclipse.smarthome.core.types.State;
 
-public enum OpenClosedType implements PrimitiveType, State, Command, Convertible {
+/**
+ *
+ * @author Kai Kreuzer - Initial contribution
+ */
+@NonNullByDefault
+public enum OpenClosedType implements PrimitiveType, State, Command {
     OPEN,
     CLOSED;
 
@@ -33,13 +43,13 @@ public enum OpenClosedType implements PrimitiveType, State, Command, Convertible
     }
 
     @Override
-    public State as(Class<? extends State> target) {
+    public <T extends State> @Nullable T as(@Nullable Class<T> target) {
         if (target == DecimalType.class) {
-            return this == OPEN ? new DecimalType(1) : DecimalType.ZERO;
+            return target.cast(this == OPEN ? new DecimalType(1) : DecimalType.ZERO);
         } else if (target == PercentType.class) {
-            return this == OPEN ? PercentType.HUNDRED : PercentType.ZERO;
+            return target.cast(this == OPEN ? PercentType.HUNDRED : PercentType.ZERO);
         } else {
-            return StateConverterUtil.defaultConversion(this, target);
+            return State.super.as(target);
         }
     }
 

@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.transform.javascript.internal;
 
@@ -18,18 +23,23 @@ import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 
 import org.apache.commons.io.IOUtils;
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.config.core.ConfigConstants;
 import org.eclipse.smarthome.core.transform.TransformationException;
 import org.eclipse.smarthome.core.transform.TransformationService;
+import org.osgi.service.component.annotations.Component;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * The implementation of {@link TransformationService} which transforms the
  * input by Java Script.
- * 
+ *
  * @author Pauli Anttila
  */
+@NonNullByDefault
+@Component(immediate = true, property = { "smarthome.transform=JS" })
 public class JavaScriptTransformationService implements TransformationService {
 
     /**
@@ -37,16 +47,14 @@ public class JavaScriptTransformationService implements TransformationService {
      * transformation rule to be read from a file which is stored under the
      * 'configurations/transform' folder. To organize the various
      * transformations one should use subfolders.
-     * 
-     * @param filename
-     *            the name of the file which contains the Java script
+     *
+     * @param filename the name of the file which contains the Java script
      *            transformation rule. Transformation service inject input
      *            (source) to 'input' variable.
-     * @param source
-     *            the input to transform
+     * @param source the input to transform
      */
     @Override
-    public String transform(String filename, String source) throws TransformationException {
+    public @Nullable String transform(String filename, String source) throws TransformationException {
         Logger logger = LoggerFactory.getLogger(JavaScriptTransformationService.class);
         if (filename == null || source == null) {
             throw new TransformationException("the given parameters 'filename' and 'source' must not be null");
@@ -61,7 +69,7 @@ public class JavaScriptTransformationService implements TransformationService {
                     + TransformationService.TRANSFORM_FOLDER_NAME + File.separator + filename;
             reader = new InputStreamReader(new FileInputStream(path));
         } catch (FileNotFoundException e) {
-            throw new TransformationException("An error occured while loading script.", e);
+            throw new TransformationException("An error occurred while loading script.", e);
         }
 
         ScriptEngineManager manager = new ScriptEngineManager();
@@ -76,7 +84,7 @@ public class JavaScriptTransformationService implements TransformationService {
         try {
             result = engine.eval(reader);
         } catch (ScriptException e) {
-            throw new TransformationException("An error occured while executing script.", e);
+            throw new TransformationException("An error occurred while executing script.", e);
         } finally {
             IOUtils.closeQuietly(reader);
         }

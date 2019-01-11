@@ -1,24 +1,29 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.internal;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.eclipse.jdt.annotation.NonNull;
 import org.eclipse.smarthome.config.core.Configuration;
 import org.eclipse.smarthome.core.common.registry.AbstractRegistry;
-import org.eclipse.smarthome.core.common.registry.Provider;
+import org.eclipse.smarthome.core.events.EventPublisher;
 import org.eclipse.smarthome.core.thing.Bridge;
 import org.eclipse.smarthome.core.thing.Channel;
 import org.eclipse.smarthome.core.thing.ChannelUID;
+import org.eclipse.smarthome.core.thing.ManagedThingProvider;
 import org.eclipse.smarthome.core.thing.Thing;
 import org.eclipse.smarthome.core.thing.ThingProvider;
 import org.eclipse.smarthome.core.thing.ThingRegistry;
@@ -28,6 +33,10 @@ import org.eclipse.smarthome.core.thing.binding.ThingHandler;
 import org.eclipse.smarthome.core.thing.binding.ThingHandlerFactory;
 import org.eclipse.smarthome.core.thing.events.ThingEventFactory;
 import org.eclipse.smarthome.core.thing.internal.ThingTracker.ThingTrackerEvent;
+import org.osgi.service.component.annotations.Component;
+import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.component.annotations.ReferenceCardinality;
+import org.osgi.service.component.annotations.ReferencePolicy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,13 +48,14 @@ import org.slf4j.LoggerFactory;
  * @author Chris Jackson - ensure thing added event is sent before linked events
  * @auther Thomas Höfer - Added config description validation exception to updateConfiguration operation
  */
+@Component(immediate = true)
 public class ThingRegistryImpl extends AbstractRegistry<Thing, ThingUID, ThingProvider> implements ThingRegistry {
 
-    private Logger logger = LoggerFactory.getLogger(ThingRegistryImpl.class.getName());
+    private final Logger logger = LoggerFactory.getLogger(ThingRegistryImpl.class.getName());
 
-    private List<ThingTracker> thingTrackers = new CopyOnWriteArrayList<>();
+    private final List<ThingTracker> thingTrackers = new CopyOnWriteArrayList<>();
 
-    private List<ThingHandlerFactory> thingHandlerFactories = new CopyOnWriteArrayList<>();
+    private final List<ThingHandlerFactory> thingHandlerFactories = new CopyOnWriteArrayList<>();
 
     public ThingRegistryImpl() {
         super(ThingProvider.class);
@@ -62,24 +72,6 @@ public class ThingRegistryImpl extends AbstractRegistry<Thing, ThingUID, ThingPr
         thingTrackers.add(thingTracker);
     }
 
-    /*
-     * (non-Javadoc)
-     *
-     * @see
-     * org.eclipse.smarthome.core.thing.ThingRegistry#getByUID(java.lang.String)
-     */
-    @Override
-    public Thing get(final ThingUID uid) {
-        for (final Map.Entry<Provider<Thing>, Collection<Thing>> entry : elementMap.entrySet()) {
-            for (final Thing thing : entry.getValue()) {
-                if (uid.equals(thing.getUID())) {
-                    return thing;
-                }
-            }
-        }
-        return null;
-    }
-
     @Override
     public Channel getChannel(ChannelUID channelUID) {
         ThingUID thingUID = channelUID.getThingUID();
@@ -91,7 +83,7 @@ public class ThingRegistryImpl extends AbstractRegistry<Thing, ThingUID, ThingPr
     }
 
     @Override
-    public void updateConfiguration(ThingUID thingUID, Map<String, Object> configurationParameters) {
+    public void updateConfiguration(ThingUID thingUID, Map<@NonNull String, Object> configurationParameters) {
         Thing thing = get(thingUID);
         if (thing != null) {
             ThingHandler thingHandler = thing.getHandler();
@@ -189,15 +181,14 @@ public class ThingRegistryImpl extends AbstractRegistry<Thing, ThingUID, ThingPr
     }
 
     private void addThingsToBridge(Bridge bridge) {
-        Collection<Thing> things = getAll();
-        for (Thing thing : things) {
+        forEach(thing -> {
             ThingUID bridgeUID = thing.getBridgeUID();
             if (bridgeUID != null && bridgeUID.equals(bridge.getUID())) {
                 if (bridge instanceof BridgeImpl && !bridge.getThings().contains(thing)) {
                     ((BridgeImpl) bridge).addThing(thing);
                 }
             }
-        }
+        });
     }
 
     private void addThingToBridge(Thing thing) {
@@ -230,8 +221,8 @@ public class ThingRegistryImpl extends AbstractRegistry<Thing, ThingUID, ThingPr
                         break;
                 }
             } catch (Exception ex) {
-                logger.error("Could not inform the ThingTracker '" + thingTracker + "' about the '" + event.name()
-                        + "' event!", ex);
+                logger.error("Could not inform the ThingTracker '{}' about the '{}' event!", thingTracker, event.name(),
+                        ex);
             }
         }
     }
@@ -255,15 +246,21 @@ public class ThingRegistryImpl extends AbstractRegistry<Thing, ThingUID, ThingPr
         for (ThingHandlerFactory thingHandlerFactory : thingHandlerFactories) {
             if (thingHandlerFactory.supportsThingType(thingTypeUID)) {
                 Thing thing = thingHandlerFactory.createThing(thingTypeUID, configuration, thingUID, bridgeUID);
-                thing.setLabel(label);
-                return thing;
+                if (thing == null) {
+                    logger.warn(
+                            "Cannot create thing of type '{}'. Binding '{}' says it supports it, but it could not be created.",
+                            thingTypeUID, thingHandlerFactory.getClass().getName());
+                } else {
+                    thing.setLabel(label);
+                    return thing;
+                }
             }
         }
-        logger.warn("Cannot create thing. No binding found that supports creating a thing" + " of type {}.",
-                thingTypeUID);
+        logger.warn("Cannot create thing. No binding found that supports creating a thing of type '{}'.", thingTypeUID);
         return null;
     }
 
+    @Reference(cardinality = ReferenceCardinality.MULTIPLE, policy = ReferencePolicy.DYNAMIC)
     protected void addThingHandlerFactory(ThingHandlerFactory thingHandlerFactory) {
         this.thingHandlerFactories.add(thingHandlerFactory);
     }
@@ -272,13 +269,24 @@ public class ThingRegistryImpl extends AbstractRegistry<Thing, ThingUID, ThingPr
         this.thingHandlerFactories.remove(thingHandlerFactory);
     }
 
-    public Provider<Thing> getProvider(Thing thing) {
-        for (Entry<Provider<Thing>, Collection<Thing>> entry : elementMap.entrySet()) {
-            if (entry.getValue().contains(thing)) {
-                return entry.getKey();
-            }
-        }
-        return null;
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC)
+    @Override
+    protected void setEventPublisher(EventPublisher eventPublisher) {
+        super.setEventPublisher(eventPublisher);
+    }
+
+    @Override
+    protected void unsetEventPublisher(EventPublisher eventPublisher) {
+        super.unsetEventPublisher(eventPublisher);
+    }
+
+    @Reference(cardinality = ReferenceCardinality.OPTIONAL, policy = ReferencePolicy.DYNAMIC, name = "ManagedThingProvider")
+    protected void setManagedProvider(ManagedThingProvider provider) {
+        super.setManagedProvider(provider);
+    }
+
+    protected void unsetManagedProvider(ManagedThingProvider managedProvider) {
+        super.unsetManagedProvider(managedProvider);
     }
 
 }

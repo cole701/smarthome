@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.thing.binding;
 
@@ -11,6 +16,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.smarthome.config.core.ConfigDescriptionRegistry;
 import org.eclipse.smarthome.config.core.Configuration;
 import org.eclipse.smarthome.core.thing.Channel;
@@ -34,14 +41,14 @@ import org.slf4j.LoggerFactory;
  * @author Thomas Höfer - added thing and thing type properties
  * @author Chris Jackson - Added properties, label, description
  */
+@NonNullByDefault
 public class ThingFactory {
-    private static final Logger logger = LoggerFactory.getLogger(ThingFactory.class);
+    private static final Logger LOGGER = LoggerFactory.getLogger(ThingFactory.class);
 
     /**
      * Generates a random Thing UID for the given thingType
      *
-     * @param thingTypeUID
-     *            thing type (must not be null)
+     * @param thingTypeUID thing type (must not be null)
      * @return random Thing UID
      */
     public static ThingUID generateRandomThingUID(ThingTypeUID thingTypeUID) {
@@ -53,18 +60,14 @@ public class ThingFactory {
     /**
      * Creates a thing based on a given thing type.
      *
-     * @param thingType
-     *            thing type (must not be null)
-     * @param thingUID
-     *            thindUID (must not be null)
-     * @param configuration
-     *            (must not be null)
-     * @param bridge
-     *            (can be null)
-     * @return thing
+     * @param thingType thing type (must not be null)
+     * @param thingUID thindUID (must not be null)
+     * @param configuration (must not be null)
+     * @param bridge (can be null)
+     * @return thing the thing
      */
     public static Thing createThing(ThingType thingType, ThingUID thingUID, Configuration configuration,
-            ThingUID bridgeUID) {
+            @Nullable ThingUID bridgeUID) {
         return createThing(thingType, thingUID, configuration, bridgeUID, null);
     }
 
@@ -73,27 +76,15 @@ public class ThingFactory {
      * default-configuration given in the configDescriptions if the
      * configDescriptionRegistry is not null
      *
-     * @param thingType
-     *            (must not be null)
-     * @param thingUID
-     *            (must not be null)
-     * @param configuration
-     *            (must not be null)
-     * @param bridgeUID
-     *            (can be null)
-     * @param configDescriptionRegistry
-     *            (can be null)
-     * @return thing
+     * @param thingType (must not be null)
+     * @param thingUID (must not be null)
+     * @param configuration (must not be null)
+     * @param bridgeUID (can be null)
+     * @param configDescriptionRegistry (can be null)
+     * @return thing the thing
      */
     public static Thing createThing(ThingType thingType, ThingUID thingUID, Configuration configuration,
-            ThingUID bridgeUID, ConfigDescriptionRegistry configDescriptionRegistry) {
-        if (thingType == null) {
-            throw new IllegalArgumentException("The thingType must not be null.");
-        }
-        if (thingUID == null) {
-            throw new IllegalArgumentException("The thingUID must not be null.");
-        }
-
+            @Nullable ThingUID bridgeUID, @Nullable ConfigDescriptionRegistry configDescriptionRegistry) {
         ThingFactoryHelper.applyDefaultConfiguration(configuration, thingType, configDescriptionRegistry);
 
         List<Channel> channels = ThingFactoryHelper.createChannels(thingType, thingUID, configDescriptionRegistry);
@@ -102,13 +93,14 @@ public class ThingFactory {
                 .withProperties(thingType.getProperties()).withBridge(bridgeUID).build();
     }
 
-    public static Thing createThing(ThingUID thingUID, Configuration configuration, Map<String, String> properties,
-            ThingUID bridgeUID, ThingTypeUID thingTypeUID, List<ThingHandlerFactory> thingHandlerFactories) {
+    public static @Nullable Thing createThing(ThingUID thingUID, Configuration configuration,
+            @Nullable Map<String, String> properties, @Nullable ThingUID bridgeUID, ThingTypeUID thingTypeUID,
+            List<ThingHandlerFactory> thingHandlerFactories) {
         for (ThingHandlerFactory thingHandlerFactory : thingHandlerFactories) {
             if (thingHandlerFactory.supportsThingType(thingTypeUID)) {
                 Thing thing = thingHandlerFactory.createThing(thingTypeUID, configuration, thingUID, bridgeUID);
                 if (thing == null) {
-                    logger.error(
+                    LOGGER.error(
                             "Thing factory ({}) returned null on create thing when it reports to support the thing type ({}).",
                             thingHandlerFactory.getClass(), thingTypeUID);
                 } else {
@@ -128,13 +120,10 @@ public class ThingFactory {
      *
      * Creates a thing based on given thing type.
      *
-     * @param thingType
-     *            thing type (must not be null)
-     * @param thingUID
-     *            thingUID (must not be null)
-     * @param configuration
-     *            (must not be null)
-     * @return thing
+     * @param thingType thing type (must not be null)
+     * @param thingUID thingUID (must not be null)
+     * @param configuration (must not be null)
+     * @return thing the thing
      */
     public static Thing createThing(ThingType thingType, ThingUID thingUID, Configuration configuration) {
         return createThing(thingType, thingUID, configuration, null);

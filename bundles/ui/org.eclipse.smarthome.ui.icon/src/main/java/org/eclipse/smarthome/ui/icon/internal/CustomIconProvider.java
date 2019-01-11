@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.ui.icon.internal;
 
@@ -17,7 +22,9 @@ import java.util.Set;
 
 import org.eclipse.smarthome.config.core.ConfigConstants;
 import org.eclipse.smarthome.ui.icon.AbstractResourceIconProvider;
+import org.eclipse.smarthome.ui.icon.IconProvider;
 import org.eclipse.smarthome.ui.icon.IconSet;
+import org.osgi.service.component.annotations.Component;
 
 /**
  * The custom icon provider supports custom icons in the configurations/icons
@@ -26,6 +33,7 @@ import org.eclipse.smarthome.ui.icon.IconSet;
  * @author Kai Kreuzer - Initial contribution
  *
  */
+@Component(immediate = true, service = {IconProvider.class} )
 public class CustomIconProvider extends AbstractResourceIconProvider {
 
     private File getIconFile(String filename, String iconSetId) {

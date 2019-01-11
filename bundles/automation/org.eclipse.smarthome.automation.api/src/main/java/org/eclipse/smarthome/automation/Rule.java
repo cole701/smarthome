@@ -1,368 +1,158 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.smarthome.automation.template.RuleTemplate;
 import org.eclipse.smarthome.config.core.ConfigDescriptionParameter;
 import org.eclipse.smarthome.config.core.Configuration;
+import org.eclipse.smarthome.core.common.registry.Identifiable;
 
 /**
- * Rule is built from {@link Module}s and consists of three sections:
- * ON/IF/THEN.
+ * An automation Rule is built from {@link Module}s and consists of three parts:
  * <ul>
- * <li>ON - contains {@link Trigger} modules. The triggers defines what fires the the Rule.
- * <li>IF - contains {@link Condition} modules which determinate if the Rule is satisfied or not. When all conditions
- * are satisfied then the Rule can proceed with execution of THEN part.
- * <li>THEN - contains actions which have to be executed by the {@link Rule}
+ * <li><b>Triggers:</b> a list of {@link Trigger} modules. Each {@link Trigger} from this list
+ * can start the evaluation of the Rule. A Rule with an empty list of {@link Trigger}s can
+ * only be triggered through the {@link RuleRegistry#runNow(String, boolean, java.util.Map)} method,
+ * or directly executed with the {@link RuleRegistry#runNow(String)} method.
+ * <li><b>Conditions:</b> a list of {@link Condition} modules. When a Rule is triggered, the
+ * evaluation of the Rule {@link Condition}s will determine if the Rule will be executed.
+ * A Rule will be executed only when all it's {@link Condition}s are satisfied. If the {@link Condition}s
+ * list is empty, the Rule is considered satisfied.
+ * <li><b>Actions:</b> a list of {@link Action} modules. These modules determine the actions that
+ * will be performed when a Rule is executed.
  * </ul>
- * Rules can have <code>tags</code> - non-hierarchical keywords or terms for
- * describing them. They help for classifying the items and allow them to be
- * found.
+ * Additionally, Rules can have <code><b>tags</b></code> - non-hierarchical keywords or terms for describing them.
+ * They can help the user to classify or label the Rules, and to filter and search them.
  *
- * @author Yordan Mihaylov - Initial Contribution
- * @author Ana Dimova - Initial Contribution
- * @author Vasil Ilchev - Initial Contribution
+ * @author Kai Kreuzer - Initial Contribution
  */
-public class Rule {
-
-    protected List<Trigger> triggers;
-    protected List<Condition> conditions;
-    protected List<Action> actions;
-    protected Configuration configuration;
-    protected List<ConfigDescriptionParameter> configDescriptions;
-    protected String templateUID;
-    protected String uid;
-    protected String name;
-    protected Set<String> tags;
-    protected Visibility visibility;
-    protected String description;
+@NonNullByDefault
+public interface Rule extends Identifiable<String> {
 
     /**
-     * Constructor creates an empty rule. The rule has ruleUID set by the rule engine.
-     */
-    public Rule() {
-    }
-
-    /**
-     * Constructor creates an empty rule with specified rule uid
+     * This method is used to obtain the identifier of the Rule. It can be specified by the {@link Rule}'s
+     * creator, or randomly generated.
      *
-     * @param uid is the unique identifier of created rule.
+     * @return an identifier of this {@link Rule}. Can't be {@code null}.
      */
-    public Rule(String uid) {
-        this.uid = uid;
-    }
+    @Override
+    String getUID();
 
     /**
-     * Utility constructor which creates a rule from modules or template.
+     * This method is used to obtain the {@link RuleTemplate} identifier of the template the {@link Rule} was created
+     * from. It will be used by the {@link RuleRegistry} to resolve the {@link Rule}: to validate the {@link Rule}'s
+     * configuration, as well as to create and configure the {@link Rule}'s modules. If a {@link Rule} has not been
+     * created from a template, or has been successfully resolved by the {@link RuleRegistry}, this method will return
+     * {@code null}.
      *
-     * @param uid is the unique identifier of the rule.
-     * @param triggers trigger modules
-     * @param conditions condition modules
-     * @param actions action modules
-     * @param configurations are values of rule template. It is available when the rule is created from template and the
-     *            template is not resolved.
-     * @param templateUID the unique identifier of RuleTemplate. It is available when the rule is created from template
-     *            and the template is not resolved.
-     * @param visibility visibility of rule
+     * @return the identifier of the {@link Rule}'s {@link RuleTemplate}, or {@code null} if the {@link Rule} has not
+     *         been created from a template, or has been successfully resolved by the {@link RuleRegistry}.
      */
-    public Rule(String uid, List<Trigger> triggers, //
-            List<Condition> conditions, //
-            List<Action> actions, //
-            List<ConfigDescriptionParameter> configDescriptions, //
-            Configuration configurations, String templateUID, Visibility visibility) {
-        this.uid = uid;
-        setTriggers(triggers);
-        setConditions(conditions);
-        setActions(actions);
-        setConfigurationDescriptions(configDescriptions);
-        setConfiguration(configurations);
-        setTemplateUID(templateUID);
-        setVisibility(visibility);
-    }
+    @Nullable
+    String getTemplateUID();
 
     /**
-     * This method is used for getting the unique identifier of the Rule. This property is set by the RuleEngine when
-     * the {@link Rule} is added. It's optional property.
+     * This method is used to obtain the {@link Rule}'s human-readable name.
      *
-     * @return unique id of this {@link Rule}
+     * @return the {@link Rule}'s human-readable name, or {@code null}.
      */
-    public String getUID() {
-        return uid;
-    }
+    @Nullable
+    String getName();
 
     /**
-     * This method is used for getting the unique identifier of the RuleTemplate. This property is set by the RuleEngine
-     * when the {@link Rule} is added and it is created from template. It's optional property.
+     * This method is used to obtain the {@link Rule}'s assigned tags.
      *
-     * @return unique id of this {@link Rule}
+     * @return the {@link Rule}'s assigned tags.
      */
-    public String getTemplateUID() {
-        return templateUID;
-    }
-
-    public void setTemplateUID(String templateUID) {
-        this.templateUID = templateUID;
-    }
+    Set<String> getTags();
 
     /**
-     * This method is used for getting the user friendly name of the {@link Rule}. It's optional property.
+     * This method is used to obtain the human-readable description of the purpose and consequences of the
+     * {@link Rule}'s execution.
      *
-     * @return the name of rule or null.
+     * @return the {@link Rule}'s human-readable description, or {@code null}.
      */
-    public String getName() {
-        return name;
-    }
+    @Nullable
+    String getDescription();
 
     /**
-     * This method is used for setting a friendly name of the Rule. This property
-     * can be changed only when the Rule is not in active state.
+     * This method is used to obtain the {@link Rule}'s {@link Visibility}.
      *
-     * @param ruleName a new name.
-     * @throws IllegalStateException when the rule is in active state
+     * @return the {@link Rule}'s {@link Visibility} value.
      */
-    public void setName(String ruleName) throws IllegalStateException {
-        name = ruleName;
-    }
+    Visibility getVisibility();
 
     /**
-     * Rules can have
-     * <li><code>tags</code> - non-hierarchical keywords or terms for describing them. This method is
-     * used for getting the tags assign to this Rule. The tags are used to filter the rules.
+     * This method is used to obtain the {@link Rule}'s {@link Configuration}.
      *
-     * @return a list of tags
+     * @return current configuration values, or an empty {@link Configuration}.
      */
-    public Set<String> getTags() {
-        return tags = tags != null ? tags : Collections.<String> emptySet();
-    }
+    Configuration getConfiguration();
 
     /**
-     * Rules can have
-     * <li><code>tags</code> - non-hierarchical keywords or terms for describing them. This method is
-     * used for setting the tags to this rule. This property can be changed only when the Rule is not in active state.
-     * The tags are used to filter the rules.
+     * This method is used to obtain the {@link List} with {@link ConfigDescriptionParameter}s defining meta info for
+     * configuration properties of the {@link Rule}.
      *
-     * @param ruleTags list of tags assign to this Rule.
-     * @throws IllegalStateException IllegalStateException when the rule is in
-     *             active state.
+     * @return a {@link List} of {@link ConfigDescriptionParameter}s.
      */
-    public void setTags(Set<String> ruleTags) throws IllegalStateException {
-        tags = ruleTags != null ? ruleTags : Collections.<String> emptySet();
-    }
+    List<ConfigDescriptionParameter> getConfigurationDescriptions();
 
     /**
-     * This method is used for getting the description of the Rule. The
-     * description is a long, user friendly description of the Rule defined by
-     * this descriptor.
+     * This method is used to get the conditions participating in {@link Rule}.
      *
-     * @return the description of the Rule.
+     * @return a list with the conditions that belong to this {@link Rule}.
      */
-    public String getDescription() {
-        return description;
-    }
+    List<Condition> getConditions();
 
     /**
-     * This method is used for setting the description of the Rule. The
-     * description is a long, user friendly description of the Rule defined by
-     * this descriptor.
+     * This method is used to get the actions participating in {@link Rule}.
      *
-     * @param ruleDescription of the Rule.
+     * @return a list with the actions that belong to this {@link Rule}.
      */
-    public void setDescription(String ruleDescription) {
-        description = ruleDescription;
-    }
+    List<Action> getActions();
 
     /**
-     * This method is used to show visibility of the Rule
+     * This method is used to get the triggers participating in {@link Rule}.
      *
-     * @return visibility of rule
+     * @return a list with the triggers that belong to this {@link Rule}.
      */
-    public Visibility getVisibility() {
-        if (visibility == null) {
-            return Visibility.VISIBLE;
-        }
-        return visibility;
-    }
-
-    public void setVisibility(Visibility visibility) {
-        this.visibility = visibility;
-    }
+    List<Trigger> getTriggers();
 
     /**
-     * This method is used for getting Map with configuration values of the {@link Rule} Key -id of the
-     * {@link ConfigDescriptionParameter} Value - the
-     * value of the corresponding property
+     * Obtains the modules of the {@link Rule}.
      *
-     * @return current configuration values
+     * @return the modules of the {@link Rule} or empty list if the {@link Rule} has no modules.
      */
-    public Configuration getConfiguration() {
-        if (configuration == null) {
-            configuration = new Configuration();
-        }
-        return configuration;
-    }
+    List<Module> getModules();
 
     /**
-     * This method is used for setting the Map with configuration values of the {@link Rule}. Key - id of the
-     * {@link ConfigDescriptionParameter} Value -
-     * the value of the corresponding property
+     * This method is used to get a {@link Module} participating in {@link Rule}
      *
-     * @param ruleConfiguration new configuration values.
+     * @param moduleId specifies the id of a module belonging to this {@link Rule}.
+     * @return module with specified id or {@code null} if it does not belong to this {@link Rule}.
      */
-    public void setConfiguration(Configuration ruleConfiguration) {
-        this.configuration = ruleConfiguration;
-    }
-
-    /**
-     * This method is used for getting the Set with {@link ConfigDescriptionParameter}s defining meta info for
-     * configuration
-     * properties of the Rule.<br/>
-     *
-     * @return a {@link Set} of {@link ConfigDescriptionParameter}s.
-     */
-    public List<ConfigDescriptionParameter> getConfigurationDescriptions() {
-        if (configDescriptions == null) {
-            configDescriptions = new ArrayList<ConfigDescriptionParameter>(3);
-        }
-        return configDescriptions;
-    }
-
-    public void setConfigurationDescriptions(List<ConfigDescriptionParameter> configDescriptions) {
-        this.configDescriptions = (configDescriptions == null) ? new ArrayList<ConfigDescriptionParameter>(3)
-                : configDescriptions;
-    }
-
-    public List<Condition> getConditions() {
-        if (conditions == null) {
-            conditions = new ArrayList<Condition>(3);
-        }
-        return conditions;
-    }
-
-    public void setConditions(List<Condition> conditions) {
-        this.conditions = (conditions == null) ? new ArrayList<Condition>(3) : conditions;
-    }
-
-    public List<Action> getActions() {
-        if (actions == null) {
-            actions = new ArrayList<Action>(3);
-        }
-        return actions;
-    }
-
-    public void setActions(List<Action> actions) {
-        this.actions = (actions == null) ? new ArrayList<Action>(3) : actions;
-    }
-
-    public List<Trigger> getTriggers() {
-        if (triggers == null) {
-            triggers = new ArrayList<Trigger>(3);
-        }
-        return triggers;
-    }
-
-    public void setTriggers(List<Trigger> triggers) {
-        this.triggers = (triggers == null) ? new ArrayList<Trigger>(3) : triggers;
-    }
-
-    /**
-     * This method is used to get a module participating in Rule
-     *
-     * @param moduleId unique id of the module in this rule.
-     * @return module with specified id or null when it does not exist.
-     */
-    public Module getModule(String moduleId) {
-        Module module = getModule(moduleId, triggers);
-        if (module != null) {
-            return module;
-        }
-
-        module = getModule(moduleId, conditions);
-        if (module != null) {
-            return module;
-        }
-
-        module = getModule(moduleId, actions);
-        if (module != null) {
-            return module;
-        }
-        return null;
-    }
-
-    private <T extends Module> T getModule(String moduleUID, List<T> modules) {
-        if (modules != null) {
-            for (T module : modules) {
-                if (module.getId().equals(moduleUID)) {
-                    return module;
-                }
+    default @Nullable Module getModule(String moduleId) {
+        for (Module module : getModules()) {
+            if (module.getId().equals(moduleId)) {
+                return module;
             }
         }
         return null;
-    }
-
-    /**
-     * This method is used to return a group of module of this rule
-     *
-     * @param moduleClazz optional parameter defining type looking modules. The
-     *            types are {@link Trigger}, {@link Condition} or {@link Action}
-     * @return list of modules of defined type or all modules when the type is not
-     *         specified.
-     */
-    @SuppressWarnings("unchecked")
-    public <T extends Module> List<T> getModules(Class<T> moduleClazz) {
-        List<T> result = null;
-        if (moduleClazz == null) {
-            result = new ArrayList<T>();
-            result.addAll((Collection<? extends T>) getTriggers());
-            result.addAll((Collection<? extends T>) getConditions());
-            result.addAll((Collection<? extends T>) getActions());
-        } else if (Trigger.class == moduleClazz) {
-            result = (List<T>) getTriggers();
-        } else if (Condition.class == moduleClazz) {
-            result = (List<T>) getConditions();
-        } else if (Action.class == moduleClazz) {
-            result = (List<T>) getActions();
-        }
-        return result != null ? result : Collections.<T> emptyList();
-    }
-
-    @Override
-    public int hashCode() {
-        final int prime = 31;
-        int result = 1;
-        result = prime * result + ((uid == null) ? 0 : uid.hashCode());
-        return result;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null) {
-            return false;
-        }
-        if (!(obj instanceof Rule)) {
-            return false;
-        }
-        Rule other = (Rule) obj;
-        if (uid == null) {
-            if (other.uid != null) {
-                return false;
-            }
-        } else if (!uid.equals(other.uid)) {
-            return false;
-        }
-        return true;
     }
 
 }

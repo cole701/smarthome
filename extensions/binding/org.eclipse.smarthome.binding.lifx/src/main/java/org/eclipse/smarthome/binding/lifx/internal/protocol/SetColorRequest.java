@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.lifx.internal.protocol;
 
@@ -11,7 +16,8 @@ import java.nio.ByteBuffer;
 
 import org.eclipse.smarthome.binding.lifx.internal.fields.ByteField;
 import org.eclipse.smarthome.binding.lifx.internal.fields.Field;
-import org.eclipse.smarthome.binding.lifx.internal.fields.UInt16Field;
+import org.eclipse.smarthome.binding.lifx.internal.fields.HSBK;
+import org.eclipse.smarthome.binding.lifx.internal.fields.HSBKField;
 import org.eclipse.smarthome.binding.lifx.internal.fields.UInt32Field;
 
 /**
@@ -23,38 +29,20 @@ public class SetColorRequest extends Packet {
     public static final int TYPE = 0x66;
 
     public static final Field<ByteBuffer> FIELD_STREAM = new ByteField(1);
-    public static final Field<Integer> FIELD_HUE = new UInt16Field().little();
-    public static final Field<Integer> FIELD_SATURATION = new UInt16Field().little();
-    public static final Field<Integer> FIELD_BRIGHTNESS = new UInt16Field().little();
-    public static final Field<Integer> FIELD_KELVIN = new UInt16Field().little();
+    public static final HSBKField FIELD_COLOR = new HSBKField();
     public static final Field<Long> FIELD_FADE_TIME = new UInt32Field().little();
 
     private ByteBuffer stream;
 
-    private int hue;
-    private int saturation;
-    private int brightness;
-    private int kelvin;
+    private HSBK color;
     private long fadeTime;
 
     public ByteBuffer getStream() {
         return stream;
     }
 
-    public int getHue() {
-        return hue;
-    }
-
-    public int getSaturation() {
-        return saturation;
-    }
-
-    public int getBrightness() {
-        return brightness;
-    }
-
-    public int getKelvin() {
-        return kelvin;
+    public HSBK getColor() {
+        return color;
     }
 
     public long getFadeTime() {
@@ -68,13 +56,9 @@ public class SetColorRequest extends Packet {
         setResponseRequired(true);
     }
 
-    public SetColorRequest(int hue, int saturation, int brightness, int kelvin, long fadeTime) {
+    public SetColorRequest(HSBK color, long fadeTime) {
         this();
-
-        this.hue = hue;
-        this.saturation = saturation;
-        this.brightness = brightness;
-        this.kelvin = kelvin;
+        this.color = color;
         this.fadeTime = fadeTime;
     }
 
@@ -91,18 +75,14 @@ public class SetColorRequest extends Packet {
     @Override
     protected void parsePacket(ByteBuffer bytes) {
         stream = FIELD_STREAM.value(bytes);
-        hue = FIELD_HUE.value(bytes);
-        saturation = FIELD_SATURATION.value(bytes);
-        brightness = FIELD_BRIGHTNESS.value(bytes);
-        kelvin = FIELD_KELVIN.value(bytes);
+        color = FIELD_COLOR.value(bytes);
         fadeTime = FIELD_FADE_TIME.value(bytes);
     }
 
     @Override
     protected ByteBuffer packetBytes() {
-        return ByteBuffer.allocate(packetLength()).put(FIELD_STREAM.bytes(stream)).put(FIELD_HUE.bytes(hue))
-                .put(FIELD_SATURATION.bytes(saturation)).put(FIELD_BRIGHTNESS.bytes(brightness))
-                .put(FIELD_KELVIN.bytes(kelvin)).put(FIELD_FADE_TIME.bytes(fadeTime));
+        return ByteBuffer.allocate(packetLength()).put(FIELD_STREAM.bytes(stream)).put(FIELD_COLOR.bytes(color))
+                .put(FIELD_FADE_TIME.bytes(fadeTime));
     }
 
     @Override

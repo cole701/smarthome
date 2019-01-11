@@ -1,17 +1,31 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.binding.lifx.internal;
 
+import static org.eclipse.smarthome.binding.lifx.LifxBindingConstants.DEFAULT_COLOR;
+
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
+import org.eclipse.smarthome.binding.lifx.internal.fields.HSBK;
 import org.eclipse.smarthome.binding.lifx.internal.listener.LifxLightStateListener;
 import org.eclipse.smarthome.binding.lifx.internal.protocol.PowerState;
+import org.eclipse.smarthome.binding.lifx.internal.protocol.SignalStrength;
 import org.eclipse.smarthome.core.library.types.HSBType;
 import org.eclipse.smarthome.core.library.types.OnOffType;
 import org.eclipse.smarthome.core.library.types.PercentType;
@@ -21,47 +35,95 @@ import org.eclipse.smarthome.core.library.types.PercentType;
  *
  * @author Wouter Born - Extracted class from LifxLightHandler, added listener logic
  */
+@NonNullByDefault
 public class LifxLightState {
 
-    private PowerState powerState;
-    private HSBType hsb;
-    private PercentType temperature;
-    private PercentType infrared;
+    private HSBK[] colors = new HSBK[] { new HSBK(DEFAULT_COLOR) };
+    private @Nullable PercentType infrared;
+    private @Nullable PowerState powerState;
+    private @Nullable SignalStrength signalStrength;
 
-    private long lastChange;
-
+    private LocalDateTime lastChange = LocalDateTime.MIN;
     private List<LifxLightStateListener> listeners = new CopyOnWriteArrayList<>();
 
     public void copy(LifxLightState other) {
         this.powerState = other.getPowerState();
-        this.hsb = other.getHSB();
-        this.temperature = other.getTemperature();
+        this.colors = other.getColors();
         this.infrared = other.getInfrared();
+        this.signalStrength = other.getSignalStrength();
     }
 
-    public PowerState getPowerState() {
+    public @Nullable PowerState getPowerState() {
         return powerState;
     }
 
-    public HSBType getHSB() {
-        return hsb;
+    public HSBK getColor() {
+        return colors.length > 0 ? new HSBK(colors[0]) : new HSBK(DEFAULT_COLOR);
     }
 
-    public PercentType getTemperature() {
-        return temperature;
+    public HSBK getColor(int zoneIndex) {
+        return zoneIndex < colors.length ? new HSBK(colors[zoneIndex]) : new HSBK(DEFAULT_COLOR);
     }
 
-    public PercentType getInfrared() {
+    public HSBK[] getColors() {
+        HSBK[] colorsCopy = new HSBK[colors.length];
+        for (int i = 0; i < colors.length; i++) {
+            colorsCopy[i] = colors[i] != null ? new HSBK(colors[i]) : null;
+        }
+        return colorsCopy;
+    }
+
+    public @Nullable PercentType getInfrared() {
         return infrared;
     }
 
-    public void setHSB(HSBType newHSB) {
-        HSBType oldHSB = this.hsb;
-        this.hsb = newHSB;
-        updateLastChange();
-        for (LifxLightStateListener listener : listeners) {
-            listener.handleHSBChange(oldHSB, newHSB);
+    public @Nullable SignalStrength getSignalStrength() {
+        return signalStrength;
+    }
+
+    public void setColor(HSBType newHSB) {
+        HSBK newColor = getColor();
+        newColor.setHSB(newHSB);
+        setColor(newColor);
+    }
+
+    public void setColor(HSBType newHSB, int zoneIndex) {
+        HSBK newColor = getColor(zoneIndex);
+        newColor.setHSB(newHSB);
+        setColor(newColor, zoneIndex);
+    }
+
+    public void setBrightness(PercentType brightness) {
+        HSBK[] newColors = getColors();
+        for (HSBK newColor : newColors) {
+            newColor.setBrightness(brightness);
         }
+        setColors(newColors);
+    }
+
+    public void setBrightness(PercentType brightness, int zoneIndex) {
+        HSBK newColor = getColor(zoneIndex);
+        newColor.setBrightness(brightness);
+        setColor(newColor, zoneIndex);
+    }
+
+    public void setColor(HSBK newColor) {
+        HSBK[] newColors = getColors();
+        Arrays.fill(newColors, newColor);
+        setColors(newColors);
+    }
+
+    public void setColor(HSBK newColor, int zoneIndex) {
+        HSBK[] newColors = getColors();
+        newColors[zoneIndex] = newColor;
+        setColors(newColors);
+    }
+
+    public void setColors(HSBK[] newColors) {
+        HSBK[] oldColors = this.colors;
+        this.colors = newColors;
+        updateLastChange();
+        listeners.forEach(listener -> listener.handleColorsChange(oldColors, newColors));
     }
 
     public void setPowerState(OnOffType newOnOff) {
@@ -72,35 +134,43 @@ public class LifxLightState {
         PowerState oldPowerState = this.powerState;
         this.powerState = newPowerState;
         updateLastChange();
-        for (LifxLightStateListener listener : listeners) {
-            listener.handlePowerStateChange(oldPowerState, newPowerState);
-        }
+        listeners.forEach(listener -> listener.handlePowerStateChange(oldPowerState, newPowerState));
     }
 
-    public void setTemperature(PercentType newTemperature) {
-        PercentType oldTemperature = this.temperature;
-        this.temperature = newTemperature;
-        updateLastChange();
-        for (LifxLightStateListener listener : listeners) {
-            listener.handleTemperatureChange(oldTemperature, newTemperature);
+    public void setTemperature(int kelvin) {
+        HSBK[] newColors = getColors();
+        for (HSBK newColor : newColors) {
+            newColor.setKelvin(kelvin);
         }
+        setColors(newColors);
+    }
+
+    public void setTemperature(int kelvin, int zoneIndex) {
+        HSBK newColor = getColor(zoneIndex);
+        newColor.setKelvin(kelvin);
+        setColor(newColor, zoneIndex);
     }
 
     public void setInfrared(PercentType newInfrared) {
         PercentType oldInfrared = this.infrared;
         this.infrared = newInfrared;
         updateLastChange();
-        for (LifxLightStateListener listener : listeners) {
-            listener.handleInfraredChange(oldInfrared, newInfrared);
-        }
+        listeners.forEach(listener -> listener.handleInfraredChange(oldInfrared, newInfrared));
+    }
+
+    public void setSignalStrength(SignalStrength newSignalStrength) {
+        SignalStrength oldSignalStrength = this.signalStrength;
+        this.signalStrength = newSignalStrength;
+        updateLastChange();
+        listeners.forEach(listener -> listener.handleSignalStrengthChange(oldSignalStrength, newSignalStrength));
     }
 
     private void updateLastChange() {
-        lastChange = System.currentTimeMillis();
+        lastChange = LocalDateTime.now();
     }
 
-    public long getMillisSinceLastChange() {
-        return System.currentTimeMillis() - lastChange;
+    public Duration getDurationSinceLastChange() {
+        return Duration.between(lastChange, LocalDateTime.now());
     }
 
     public void addListener(LifxLightStateListener listener) {

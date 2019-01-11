@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 1997, 2015 by ProSyst Software GmbH and others.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.automation.module.timer.factory;
 
@@ -17,14 +22,15 @@ import org.eclipse.smarthome.automation.handler.BaseModuleHandlerFactory;
 import org.eclipse.smarthome.automation.handler.ModuleHandler;
 import org.eclipse.smarthome.automation.module.timer.handler.DayOfWeekConditionHandler;
 import org.eclipse.smarthome.automation.module.timer.handler.GenericCronTriggerHandler;
+import org.eclipse.smarthome.automation.module.timer.handler.TimeOfDayConditionHandler;
 import org.eclipse.smarthome.automation.module.timer.handler.TimeOfDayTriggerHandler;
-import org.osgi.framework.BundleContext;
+import org.osgi.service.component.annotations.Deactivate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
  * This HandlerFactory creates TimerTriggerHandlers to control items within the
- * RuleEngine.
+ * RuleManager.
  *
  * @author Christoph Knauf - initial contribution
  * @author Kai Kreuzer - added new module types
@@ -32,21 +38,22 @@ import org.slf4j.LoggerFactory;
  */
 public class TimerModuleHandlerFactory extends BaseModuleHandlerFactory {
 
-    private Logger logger = LoggerFactory.getLogger(TimerModuleHandlerFactory.class);
+    private final Logger logger = LoggerFactory.getLogger(TimerModuleHandlerFactory.class);
 
     public static final String THREADPOOLNAME = "ruletimer";
-    private static final Collection<String> types = Arrays
+    private static final Collection<String> TYPES = Arrays
             .asList(new String[] { GenericCronTriggerHandler.MODULE_TYPE_ID, TimeOfDayTriggerHandler.MODULE_TYPE_ID,
-                    DayOfWeekConditionHandler.MODULE_TYPE_ID });
+                    TimeOfDayConditionHandler.MODULE_TYPE_ID, DayOfWeekConditionHandler.MODULE_TYPE_ID });
 
     @Override
-    public void activate(BundleContext bundleContext) {
-        super.activate(bundleContext);
+    @Deactivate
+    public void deactivate() {
+        super.deactivate();
     }
 
     @Override
     public Collection<String> getTypes() {
-        return types;
+        return TYPES;
     }
 
     @Override
@@ -57,6 +64,8 @@ public class TimerModuleHandlerFactory extends BaseModuleHandlerFactory {
             return new GenericCronTriggerHandler((Trigger) module);
         } else if (TimeOfDayTriggerHandler.MODULE_TYPE_ID.equals(moduleTypeUID) && module instanceof Trigger) {
             return new TimeOfDayTriggerHandler((Trigger) module);
+        } else if (TimeOfDayConditionHandler.MODULE_TYPE_ID.equals(moduleTypeUID) && module instanceof Condition) {
+            return new TimeOfDayConditionHandler((Condition) module);
         } else if (DayOfWeekConditionHandler.MODULE_TYPE_ID.equals(moduleTypeUID) && module instanceof Condition) {
             return new DayOfWeekConditionHandler((Condition) module);
         } else {

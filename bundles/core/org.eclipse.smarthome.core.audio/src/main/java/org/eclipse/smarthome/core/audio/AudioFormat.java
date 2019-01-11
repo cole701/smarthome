@@ -1,9 +1,14 @@
 /**
- * Copyright (c) 2014-2017 by the respective copyright holders.
- * All rights reserved. This program and the accompanying materials
- * are made available under the terms of the Eclipse Public License v1.0
- * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * Copyright (c) 2014,2019 Contributors to the Eclipse Foundation
+ *
+ * See the NOTICE file(s) distributed with this work for additional
+ * information regarding copyright ownership.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the Eclipse Public License 2.0 which is available at
+ * http://www.eclipse.org/legal/epl-2.0
+ *
+ * SPDX-License-Identifier: EPL-2.0
  */
 package org.eclipse.smarthome.core.audio;
 
@@ -19,12 +24,20 @@ import java.util.Set;
 public class AudioFormat {
 
     // generic mp3 format without any further constraints
-    public static AudioFormat MP3 = new AudioFormat(AudioFormat.CONTAINER_NONE, AudioFormat.CODEC_MP3, null, null, null,
-            null);
+    public static final AudioFormat MP3 = new AudioFormat(AudioFormat.CONTAINER_NONE, AudioFormat.CODEC_MP3, null, null,
+            null, null);
 
     // generic wav format without any further constraints
-    public static AudioFormat WAV = new AudioFormat(AudioFormat.CONTAINER_WAVE, AudioFormat.CODEC_PCM_SIGNED, null,
+    public static final AudioFormat WAV = new AudioFormat(AudioFormat.CONTAINER_WAVE, AudioFormat.CODEC_PCM_SIGNED,
+            null, null, null, null);
+
+    // generic OGG format without any further constraints
+    public static final AudioFormat OGG = new AudioFormat(AudioFormat.CONTAINER_OGG, AudioFormat.CODEC_VORBIS, null,
             null, null, null);
+
+    // generic AAC format without any further constraints
+    public static final AudioFormat AAC = new AudioFormat(AudioFormat.CONTAINER_NONE, AudioFormat.CODEC_AAC, null, null,
+            null, null);
 
     /**
      * {@link AudioCodec} encoded data without any container header or footer,
@@ -89,6 +102,11 @@ public class AudioFormat {
      * @see <a href="http://xiph.org/vorbis/doc/">Vorbis</a>
      */
     public static final String CODEC_VORBIS = "VORBIS";
+
+    /**
+     * AAC Codec
+     */
+    public static final String CODEC_AAC = "AAC";
 
     /**
      * Codec
