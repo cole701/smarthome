@@ -10,22 +10,19 @@
  *
  * SPDX-License-Identifier: EPL-2.0
  */
-package org.eclipse.smarthome.binding.mqtt.generic.internal.convention.homie300;
+package org.eclipse.smarthome.binding.dmx.internal.config;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
-import org.eclipse.smarthome.binding.mqtt.generic.internal.mapping.AbstractMqttAttributeClass;
+import org.eclipse.smarthome.binding.dmx.internal.DmxBridgeHandler;
 
 /**
- * Homie 3.x Device statistic attributes
+ * The {@link DmxBridgeHandlerConfiguration} is a helper class for the base thing handler configuration
  *
- * @author David Graeff - Initial contribution
+ * @author Jan N. Klug - Initial contribution
  */
-@NonNullByDefault
-public class DeviceStatsAttributes extends AbstractMqttAttributeClass {
-    public int interval = 0; // In seconds
 
-    @Override
-    public Object getFieldsOf() {
-        return this;
-    }
+@NonNullByDefault
+public class DmxBridgeHandlerConfiguration {
+    public String applycurve = "";
+    public int refreshrate = DmxBridgeHandler.DEFAULT_REFRESH_RATE;
 }
